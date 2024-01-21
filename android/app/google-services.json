@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "526961461411",
+    "project_id": "fotofusion-53943",
+    "storage_bucket": "fotofusion-53943.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:526961461411:android:d122043bd746185591d716",
+        "android_client_info": {
+          "package_name": "com.example.fotofusion"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6Ql1r55lx8VhoN7YgKaaHLP4Cb7dLuIY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

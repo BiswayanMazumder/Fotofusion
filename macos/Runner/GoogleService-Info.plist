@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyDmD7GB9a3bfGYC5_6kTH-bB8Ey1cjwAQQ</string>
+	<key>GCM_SENDER_ID</key>
+	<string>526961461411</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.example.fotofusion.RunnerTests</string>
+	<key>PROJECT_ID</key>
+	<string>fotofusion-53943</string>
+	<key>STORAGE_BUCKET</key>
+	<string>fotofusion-53943.appspot.com</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:526961461411:ios:93ba2d053232244691d716</string>
+</dict>
+</plist>
