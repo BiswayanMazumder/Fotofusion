@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fotofusion/account%20page/user_account.dart';
+import 'package:fotofusion/pages/explore.dart';
 import 'package:fotofusion/pages/homepage.dart';
 import 'package:fotofusion/posts/post_page.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
@@ -24,6 +25,7 @@ class _NavBarState extends State<NavBar> {
   }
   final List screens=[
     Homepage(),
+    ExplorePage(),
     Postpage(),
     Account_page(),
   ];
@@ -55,6 +57,11 @@ class _NavBarState extends State<NavBar> {
           tabs: [
             GButton(icon: Icons.home,
               text: 'HomePage',
+              rippleColor: Colors.green,
+              backgroundColor: Colors.cyan,
+            ),
+            GButton(icon: Icons.search,
+              text: 'Search',
               rippleColor: Colors.green,
               backgroundColor: Colors.cyan,
             ),
