@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fotofusion/account%20page/user_account.dart';
+import 'package:fotofusion/navbar.dart';
 import 'package:fotofusion/pages/signup.dart';
 import 'firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -24,7 +25,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'FotoFusion',
-      home: user!=null?Account_page():MyHomePage()
+      home: user!=null?NavBar():MyHomePage()
     );
   }
 }
@@ -53,7 +54,7 @@ class _MyHomePageState extends State<MyHomePage> {
     try{
       await _auth.signInWithEmailAndPassword(email: _emailcontroller.text, password: _passwordcontroller.text);
       print('logged in');
-      Navigator.pushReplacement(context,MaterialPageRoute(builder: (context) => Account_page(),));
+      Navigator.pushReplacement(context,MaterialPageRoute(builder: (context) => NavBar()));
     }catch(e){
       print(e);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
