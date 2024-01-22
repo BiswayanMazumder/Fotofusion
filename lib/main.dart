@@ -50,6 +50,8 @@ class _MyHomePageState extends State<MyHomePage> {
     });
     print(count);
   }
+  bool isLoading=false;
+  String error='';
   Future<void> login() async{
     try{
       await _auth.signInWithEmailAndPassword(email: _emailcontroller.text, password: _passwordcontroller.text);
@@ -57,6 +59,10 @@ class _MyHomePageState extends State<MyHomePage> {
       Navigator.pushReplacement(context,MaterialPageRoute(builder: (context) => NavBar()));
     }catch(e){
       print(e);
+      setState(() {
+        error='Enter correct email id or password';
+        isLoading=true;
+      });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         backgroundColor: Colors.red,
         content: Text('Enter correct email id or password'),
@@ -132,18 +138,28 @@ class _MyHomePageState extends State<MyHomePage> {
                   elevation: MaterialStatePropertyAll(50),
                   backgroundColor: MaterialStatePropertyAll(Colors.blue)
                 ),
-                child: Text('Login',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),)),
+                child: isLoading?Container(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(color: Colors.black,),
+                ):Text('Login',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),
+                )
+            ),
+            SizedBox(
+              height: 20,
+            ),
+            Text(error,style: TextStyle(color: Colors.red,fontWeight: FontWeight.bold),),
             SizedBox(
               height: 20,
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('Forgot your login details?',style: TextStyle(color: Colors.grey,fontSize: 13),),
+                Text("Don't have an account?",style: TextStyle(color: Colors.grey,fontSize: 13),),
                 TextButton(onPressed: (){
                   Navigator.push(context, MaterialPageRoute(builder: (context) => Signup(),));
                 },
-                    child: Text('Get help logging in',style: TextStyle(color: Colors.white,fontWeight:FontWeight.bold),))
+                    child: Text('Create an account',style: TextStyle(color: Colors.white,fontWeight:FontWeight.bold),))
               ],
             )
           ],

@@ -211,8 +211,54 @@ class _Account_pageState extends State<Account_page> {
         automaticallyImplyLeading: false,
         actions: [
           IconButton(onPressed: (){
-            _auth.signOut();
-            Navigator.pushReplacement(context, MaterialPageRoute(builder:(context) => MyHomePage(),));
+            showDialog(context: context, builder: (context) {
+              return AlertDialog(
+                backgroundColor: Colors.white,
+                title: Center(
+                  child: Text('Really want to sign out?',style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20
+                  ),),
+                ),
+                actions: [
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Do you really want to sign out?',style: TextStyle(
+                        fontWeight: FontWeight.w300
+                      ),),
+                      SizedBox(
+                        height: 20,
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          ElevatedButton(onPressed: (){
+                            Navigator.pop(context);
+                          },
+                              child: Text('Cancel',style: TextStyle(
+                            color: Colors.black
+                          ),
+                              ),
+                            style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.green)),
+                          ),
+                          ElevatedButton(onPressed: (){
+                            _auth.signOut();
+                            Navigator.pushReplacement(context, MaterialPageRoute(builder:(context) => MyHomePage(),));
+                          },
+                            child: Text('Sign Out',style: TextStyle(
+                                color: Colors.white
+                            ),
+                            ),
+                            style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.red)),
+                          ),
+                        ],
+                      )
+                    ],
+                  )
+                ],
+              );
+            },);
           },
               icon: Icon(Icons.logout_rounded,color: Colors.white,)),
           IconButton(
@@ -385,7 +431,7 @@ class _Account_pageState extends State<Account_page> {
                   alignment: Alignment.topRight,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => Homepage()));
+                      // Navigator.push(context, MaterialPageRoute(builder: (context) => Homepage()));
                     },
                     style: ButtonStyle(
                         backgroundColor: MaterialStatePropertyAll(

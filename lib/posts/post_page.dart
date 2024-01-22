@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:fotofusion/account%20page/user_account.dart';
+import 'package:fotofusion/navbar.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -276,7 +277,8 @@ class _PostpageState extends State<Postpage> {
               'imageUrl': await _uploadImage(),
               'caption': _captionController.text,
               'username':username,
-              'profile photo':_imageUrl
+              'profile photo':_imageUrl,
+              'likes':[]
             },
           ]),
         }, SetOptions(merge: true));
@@ -290,7 +292,7 @@ class _PostpageState extends State<Postpage> {
         // Navigate to the user's account page after posting
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => Account_page()),
+          MaterialPageRoute(builder: (context) => NavBar()),
         );
       } catch (e) {
         print('Error uploading post: $e');
