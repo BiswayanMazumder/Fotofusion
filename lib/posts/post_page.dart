@@ -26,7 +26,7 @@ class _PostpageState extends State<Postpage> {
   File? _image;
   final FirebaseStorage _storage = FirebaseStorage.instance;
   bool _upload = true;
-
+  TextEditingController _locationController=TextEditingController();
   Future<int> _getCurrentPostNumber(String userId) async {
     try {
       // Get the document containing the user's profile picture data
@@ -217,6 +217,78 @@ class _PostpageState extends State<Postpage> {
               ),
               controller: _captionController,
             ),
+            SizedBox(
+              height: 50,
+            ),
+            TextField(
+              style: TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                contentPadding: EdgeInsets.only(left: 20),
+                prefixIcon: _uploading
+                    ? CircularProgressIndicator(
+                  color: Colors.red,
+                )
+                    : _imageUrl == null
+                    ? Container(
+                  width: 50,
+                  height: 50,
+                  margin: EdgeInsets.only(right: 20),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.black,
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.5),
+                        spreadRadius: 2,
+                        blurRadius: 5,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    backgroundImage: NetworkImage(
+                      'https://firebasestorage.googleapis.com/v0/'
+                          'b/fotofusion-53943.appspot.com/o/profile%2'
+                          '0pics.jpg?alt=media&token=17bc6fff-cfe9-4f2d-9'
+                          'a8c-18d2a5636671',
+                    ),
+                  ),
+                )
+                    : Container(
+                  width: 50,
+                  height: 50,
+                  margin: EdgeInsets.only(right: 20),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.black,
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.5),
+                        spreadRadius: 2,
+                        blurRadius: 5,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    backgroundImage: NetworkImage(_imageUrl!),
+                  ),
+                ),
+                hintText: 'Write your location...',
+                hintStyle: TextStyle(color: Colors.white),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(25.0),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              controller: _locationController,
+            ),
           ],
         ),
       ),
@@ -278,7 +350,7 @@ class _PostpageState extends State<Postpage> {
               'caption': _captionController.text,
               'username':username,
               'profile photo':_imageUrl,
-              'likes':[]
+              'location':_locationController.text
             },
           ]),
         }, SetOptions(merge: true));
@@ -321,6 +393,7 @@ class _PostpageState extends State<Postpage> {
             {
               'imageUrl': await _uploadImage(),
               'caption': _captionController.text,
+              'location':_locationController.text
             },
           ]),
         }, SetOptions(merge: true));

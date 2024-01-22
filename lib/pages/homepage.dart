@@ -19,6 +19,7 @@ class _HomepageState extends State<Homepage> {
   FirebaseFirestore _firestore = FirebaseFirestore.instance;
   int numberOfPosts = 0;
   bool isLoading = false;
+  String location='';
 
   @override
   void initState() {
@@ -27,7 +28,7 @@ class _HomepageState extends State<Homepage> {
     initializeLikedUsersList();
     updateImagesPeriodically();
   }
-
+  List<String> locations=[];
   Future<void> initializeNumberOfPosts() async {
     try {
       DocumentSnapshot documentSnapshot = await _firestore
@@ -64,6 +65,7 @@ class _HomepageState extends State<Homepage> {
       await fetchImages();
       await fetchcaptions();
       await fetchInitialLikeStatus();
+      await fetchlocations();
     }
   }
 
@@ -113,7 +115,29 @@ class _HomepageState extends State<Homepage> {
       print('Error fetching profile photo: $e');
     }
   }
+  Future<void> fetchlocations() async {
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('All posts')
+          .doc('Global Post')
+          .get();
 
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['posts'] as List?) ?? [];
+
+          setState(() {
+            locations = posts
+                .map((post) => post['location'].toString())
+                .toList();
+          });
+        }
+      }
+    } catch (e) {
+      print('Error fetching profile photo: $e');
+    }
+  }
   Future<void> fetchusernames() async {
     try {
       DocumentSnapshot documentSnapshot = await _firestore
@@ -256,12 +280,27 @@ class _HomepageState extends State<Homepage> {
                           ),
                         ),
                         SizedBox(width: 10),
-                        Text(
-                          usernames[index],
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                          ),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              usernames[index],
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold
+                              ),
+                            ),
+                            if (locations.isNotEmpty)
+                              Text(
+                                locations[index],
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                          ],
                         ),
                       ],
                     ),

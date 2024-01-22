@@ -58,7 +58,7 @@ class _NavBarState extends State<NavBar> {
             GButton(icon: Icons.home,
               text: 'HomePage',
               rippleColor: Colors.green,
-              backgroundColor: Colors.cyan,
+              backgroundColor: Colors.red,
             ),
             GButton(icon: Icons.search,
               text: 'Search',

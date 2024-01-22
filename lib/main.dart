@@ -83,7 +83,10 @@ class _MyHomePageState extends State<MyHomePage> {
             SizedBox(
               height: 100,
             ),
-            Image(image: NetworkImage('https://firebasestorage.googleapis.com/v0/b/fotofusion-53943.appspot.com/o/_c44cd56b-b056-4bee-9361-59b7751584cb.jpg?alt=media&token=36028288-14f6-4b68-ab27-3cb3f96a73a2')),
+            Image(image: NetworkImage('https://firebasestorage.googleapis.com/v0/b/fotofusion-53943.appspot.com/o/fotofusion%20bg%20-%20Made%20with%20Clipchamp.gif?alt=media&token=b9674f4c-e669-44db-ae54-4c5628c01d06'),
+            height: 400,
+              width: 800,
+            ),
             Container(
               decoration: BoxDecoration(
                 color: Colors.grey[800]!,
