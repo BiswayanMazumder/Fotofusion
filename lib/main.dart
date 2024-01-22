@@ -44,6 +44,7 @@ class _MyHomePageState extends State<MyHomePage> {
   TextEditingController _namecontroller=TextEditingController();
   bool isloading=true;
   int count=0;
+  String res='';
   void inccount(){
     setState(() {
       count+=1;
@@ -56,12 +57,15 @@ class _MyHomePageState extends State<MyHomePage> {
     try{
       await _auth.signInWithEmailAndPassword(email: _emailcontroller.text, password: _passwordcontroller.text);
       print('logged in');
+      setState(() {
+        isLoading=true;
+      });
       Navigator.pushReplacement(context,MaterialPageRoute(builder: (context) => NavBar()));
     }catch(e){
       print(e);
       setState(() {
         error='Enter correct email id or password';
-        isLoading=true;
+
       });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         backgroundColor: Colors.red,
@@ -129,6 +133,18 @@ class _MyHomePageState extends State<MyHomePage> {
                     )
                   ),
                 )),
+
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(onPressed: ()async{
+                  await _auth.sendPasswordResetEmail(email: _emailcontroller.text);
+                  setState(() {
+                    res='Password reset email sent';
+                  });
+                },
+                    child: Text('Forgot Password?',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),)),
+              ),
+
             SizedBox(
               height: 20,
             ),
@@ -152,6 +168,7 @@ class _MyHomePageState extends State<MyHomePage> {
               height: 20,
             ),
             Text(error,style: TextStyle(color: Colors.red,fontWeight: FontWeight.bold),),
+            Text(res,style: TextStyle(color: Colors.green,fontWeight: FontWeight.bold),),
             SizedBox(
               height: 20,
             ),

@@ -115,7 +115,6 @@ class _PostpageState extends State<Postpage> {
           TextButton(
             onPressed: () {
               _uploadPost();
-              _uploadPosts();
             },
             child: Text(
               'Post',
@@ -407,7 +406,7 @@ class _PostpageState extends State<Postpage> {
         // Navigate to the user's account page after posting
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => Account_page()),
+          MaterialPageRoute(builder: (context) => NavBar()),
         );
       } catch (e) {
         print('Error uploading post: $e');
