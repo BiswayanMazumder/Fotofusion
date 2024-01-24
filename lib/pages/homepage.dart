@@ -20,6 +20,43 @@ class _HomepageState extends State<Homepage> {
   int numberOfPosts = 0;
   bool isLoading = false;
   String location='';
+  bool isverified=true;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // You can also perform initialization here based on inherited widgets
+  }
+  Future<void> showVerification() async {
+    final user = _auth.currentUser;
+
+    if (user != null && user.emailVerified == false) {
+      setState(() {
+        isverified = false;
+      });
+
+      if (!isverified) {
+        // Show dialog on screen
+        showDialog(
+          context: context, // Make sure to have access to the context
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('Verification Required'),
+              content: Text('Please verify your email to proceed.'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // Close the dialog
+                  },
+                  child: Text('OK'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    }
+    print('isverified $isverified');
+  }
 
   @override
   void initState() {
@@ -27,7 +64,9 @@ class _HomepageState extends State<Homepage> {
     initializeNumberOfPosts();
     initializeLikedUsersList();
     updateImagesPeriodically();
+    showVerification();
   }
+
   List<String> locations=[];
   Future<void> initializeNumberOfPosts() async {
     try {
@@ -245,7 +284,15 @@ class _HomepageState extends State<Homepage> {
       likedUsers[index].length = count;
     });
   }
+  Future<void> ShowDialogue()async{
+    showDialog(context: context, builder: (context) {
+      return AlertDialog(
+        backgroundColor: Colors.green,
+        title: Text('Please verify yourself',style: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),),
 
+      );
+    },);
+  }
   @override
   Widget build(BuildContext context) {
     final String currentUserUid = _auth.currentUser?.uid ?? '';

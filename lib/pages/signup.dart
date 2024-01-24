@@ -43,7 +43,8 @@ class _SignupState extends State<Signup> {
       print(e);
     }
   }
-
+  String err='';
+  String success='';
   Future<void> signupfirestore() async {
     final user = _auth.currentUser;
     try {
@@ -55,10 +56,16 @@ class _SignupState extends State<Signup> {
         'following':[],
         'time of registering': FieldValue.serverTimestamp(),
       });
+      setState(() {
+        success='Account Successfully Created';
+      });
       user.sendEmailVerification();
       print('Details successfully written');
     } catch (e) {
       print('Error $e');
+      setState(() {
+        err='Account Already exists';
+      });
     }
   }
 
@@ -185,6 +192,7 @@ class _SignupState extends State<Signup> {
                     _usernamecontroller.text.isNotEmpty) {
                   await signup(); // Wait for signup to complete
                   signupfirestore();
+                  Text(success,style: TextStyle(color: Colors.green,fontWeight: FontWeight.bold),);
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -197,6 +205,7 @@ class _SignupState extends State<Signup> {
                     ),
                   );
                 }
+                Text(err,style: TextStyle(color: Colors.red,fontWeight: FontWeight.bold),);
               },
               style: ButtonStyle(
                 shadowColor: MaterialStatePropertyAll(Colors.black),

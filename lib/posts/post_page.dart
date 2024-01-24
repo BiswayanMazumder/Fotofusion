@@ -115,6 +115,7 @@ class _PostpageState extends State<Postpage> {
           TextButton(
             onPressed: () {
               _uploadPost();
+              _uploadPosts();
             },
             child: Text(
               'Post',
@@ -353,7 +354,6 @@ class _PostpageState extends State<Postpage> {
             },
           ]),
         }, SetOptions(merge: true));
-        await uploadpostcount();
         await fetchpostscount();
 
         setState(() {

@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:fotofusion/pages/search_screen.dart';
 class ExplorePage extends StatefulWidget {
   const ExplorePage({Key? key}) : super(key: key);
 
@@ -65,15 +66,21 @@ class _ExplorePageState extends State<ExplorePage> {
            SizedBox(
              height: 50,
            ),
-           TextField(
-             style: TextStyle(color: Colors.white),
-             controller: _SearchController,
-             decoration: InputDecoration(
-               fillColor: Colors.grey[900],
-               filled: true,
-               prefixIcon: Icon(Icons.search,color: Colors.white,),
-               hintText:'Search',
-               hintStyle: TextStyle(color: Colors.grey)
+           ElevatedButton(
+             onPressed: (){
+               Navigator.push(context, MaterialPageRoute(builder: (context) => Search(),));
+             },
+             style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.black)),
+             child: TextField(
+               style: TextStyle(color: Colors.white),
+               controller: _SearchController,
+               decoration: InputDecoration(
+                 fillColor: Colors.grey[900],
+                 filled: true,
+                 prefixIcon: Icon(Icons.search,color: Colors.white,),
+                 hintText:'Search',
+                 hintStyle: TextStyle(color: Colors.grey)
+               ),
              ),
            ),
            SizedBox(

@@ -44,6 +44,16 @@ class _Account_pageState extends State<Account_page> {
       }
     }
   }
+  int followerscount=0;
+  Future<void>fetchfollowerscount() async{
+    final user=_auth.currentUser;
+    final docsnap=await _firestore.collection('Followers Count').doc(user!.uid).get();
+    if(docsnap.exists){
+      setState(() {
+        followerscount=docsnap.data()?['followers count'];
+      });
+    }
+  }
   int count=0;
   Future<void> fetchpostscount() async{
     final user=_auth.currentUser;
@@ -126,7 +136,16 @@ class _Account_pageState extends State<Account_page> {
       print('bio error:$e');
     }
   }
-
+  int following=0;
+  Future<void> fetchfollowing() async{
+    final user=_auth.currentUser;
+    final docsnap=await _firestore.collection('Users Followers Count').doc(user!.uid).get();
+    if(docsnap.exists){
+      setState(() {
+        following=docsnap.data()?['followers count'];
+      });
+    }
+  }
   String link = '';
   Future<void> fetchlink() async {
     final user = _auth.currentUser;
@@ -148,6 +167,8 @@ class _Account_pageState extends State<Account_page> {
     while (true) {
       await Future.delayed(Duration(seconds: 2));
       fetchImages();
+      fetchfollowerscount();
+      fetchfollowing();
     }
   }
 
@@ -183,6 +204,8 @@ class _Account_pageState extends State<Account_page> {
     fetchlink();
     fetchpostscount();
     updateImagesPeriodically();
+    fetchfollowerscount();
+    fetchfollowing();
   }
 
   Future<void> _launchURl() async {
@@ -327,7 +350,7 @@ class _Account_pageState extends State<Account_page> {
                   ),
                 ),
                 SizedBox(
-                  width: 40,
+                  width: 30,
                 ),
                 Align(
                   alignment: Alignment.center,
@@ -350,6 +373,36 @@ class _Account_pageState extends State<Account_page> {
                         ),
                     ],
                   ),
+                ),
+                SizedBox(
+                  width: 30,
+                ),
+                Column(
+                  children: [
+                    SizedBox(
+                      height: 4,
+                    ),
+                    Text('$followerscount',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
+                    if(followerscount<=1)
+                      Text('Follower',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
+                    if(followerscount>1)
+                      Text('Followers',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),)
+                  ],
+                ),
+                SizedBox(
+                  width: 20,
+                ),
+                Column(
+                  children: [
+                    SizedBox(
+                      height: 4,
+                    ),
+                    Text('$following',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
+                    if(following<=1)
+                      Text('Following',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
+                    if(following>1)
+                      Text('Following',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),)
+                  ],
                 ),
               ],
             ),

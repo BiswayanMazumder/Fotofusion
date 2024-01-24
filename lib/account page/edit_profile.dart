@@ -4,6 +4,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:fotofusion/account%20page/user_account.dart';
+import 'package:fotofusion/navbar.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 class Editprofile extends StatefulWidget {
@@ -45,7 +46,7 @@ class _EditprofileState extends State<Editprofile> {
     final user = _auth.currentUser;
     if (user != null) {
       try {
-        final docSnapshot = await _firestore.collection('profile_pictures').doc(user.uid).get();
+        final docSnapshot = await _firestore.collection('User Details').doc(user.uid).get();
         if (docSnapshot.exists) {
           setState(() {
             _imageUrl = docSnapshot.data()?['url_user1'];
@@ -70,7 +71,7 @@ class _EditprofileState extends State<Editprofile> {
         await user.updateProfile(photoURL: imageUrl);
 
         // Store the URL in Firestore
-        await _firestore.collection('profile_pictures').doc(user.uid).set({
+        await _firestore.collection('User Details').doc(user.uid).update({
           'url_user1': imageUrl,
           'time stamp': FieldValue.serverTimestamp(),
         });
@@ -140,7 +141,7 @@ class _EditprofileState extends State<Editprofile> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         leading: IconButton(onPressed: (){
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => Account_page(),));
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) =>NavBar(),));
         }, icon: Icon(CupertinoIcons.back,color: Colors.white,)),
         title: Text('Edit profile',style: TextStyle(color: Colors.white),),
       ),

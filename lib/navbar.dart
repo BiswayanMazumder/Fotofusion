@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fotofusion/account%20page/user_account.dart';
 import 'package:fotofusion/pages/explore.dart';
 import 'package:fotofusion/pages/homepage.dart';
+import 'package:fotofusion/pages/search_screen.dart';
 import 'package:fotofusion/posts/post_page.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 class NavBar extends StatefulWidget {
@@ -25,7 +26,7 @@ class _NavBarState extends State<NavBar> {
   }
   final List screens=[
     Homepage(),
-    ExplorePage(),
+    Search(),
     Postpage(),
     Account_page(),
   ];
