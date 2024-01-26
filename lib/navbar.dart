@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fotofusion/account%20page/user_account.dart';
+import 'package:fotofusion/navbar_Post_page.dart';
 import 'package:fotofusion/pages/explore.dart';
 import 'package:fotofusion/pages/homepage.dart';
 import 'package:fotofusion/pages/search_screen.dart';
@@ -27,7 +28,7 @@ class _NavBarState extends State<NavBar> {
   final List screens=[
     Homepage(),
     Search(),
-    Postpage(),
+    postpagenavbar(),
     Account_page(),
   ];
   @override

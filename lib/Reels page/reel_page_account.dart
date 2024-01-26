@@ -1,36 +1,36 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:path_provider/path_provider.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:fotofusion/Reels%20page/reel_page_account.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:fotofusion/account%20page/edit_profile.dart';
 import 'package:fotofusion/main.dart';
-import 'package:fotofusion/pages/homepage.dart';
-import 'package:fotofusion/posts/detailed_post.dart';
+import 'package:fotofusion/navbar.dart';
 import 'package:fotofusion/posts/post_page.dart';
 import 'package:fotofusion/posts/reels.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/cupertino.dart';
-class Account_page extends StatefulWidget {
-  const Account_page({Key? key}) : super(key: key);
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
+class Reelpage_account extends StatefulWidget {
+  const Reelpage_account({Key? key}) : super(key: key);
 
   @override
-  State<Account_page> createState() => _Account_pageState();
+  State<Reelpage_account> createState() => _Reelpage_accountState();
 }
 
-class _Account_pageState extends State<Account_page> {
+class _Reelpage_accountState extends State<Reelpage_account> {
   FirebaseAuth _auth = FirebaseAuth.instance;
   FirebaseFirestore _firestore = FirebaseFirestore.instance;
   String username = 'Loading';
   String name = 'Loading';
   String? _imageUrl;
-  bool _uploading = false;
-  final ImagePicker _imagePicker = ImagePicker();
   File? _image;
-  bool isverified=false;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  bool isverified = false;
+  bool _uploading = false;
+  late VideoPlayerController _controller;
   Future<void> _loadProfilePicture() async {
     final user = _auth.currentUser;
     if (user != null) {
@@ -47,77 +47,47 @@ class _Account_pageState extends State<Account_page> {
       }
     }
   }
-  Future<void> fetchverification() async{
-    final user=_auth.currentUser;
-    final docsnap=await _firestore.collection('Verifications').doc(user!.uid).get();
-    if(docsnap.exists){
+
+  Future<void> fetchverification() async {
+    final user = _auth.currentUser;
+    final docsnap = await _firestore.collection('Verifications')
+        .doc(user!.uid)
+        .get();
+    if (docsnap.exists) {
       setState(() {
-        isverified=docsnap.data()?['isverified'];
+        isverified = docsnap.data()?['isverified'];
       });
     }
   }
-  int followerscount=0;
-  Future<void>fetchfollowerscount() async{
-    final user=_auth.currentUser;
-    final docsnap=await _firestore.collection('Followers Count').doc(user!.uid).get();
-    if(docsnap.exists){
+
+  int followerscount = 0;
+
+  Future<void> fetchfollowerscount() async {
+    final user = _auth.currentUser;
+    final docsnap = await _firestore.collection('Followers Count').doc(
+        user!.uid).get();
+    if (docsnap.exists) {
       setState(() {
-        followerscount=docsnap.data()?['followers count'];
+        followerscount = docsnap.data()?['followers count'];
       });
     }
   }
-  int count=0;
-  Future<void> fetchpostscount() async{
-    final user=_auth.currentUser;
-    final docsnap=await _firestore.collection('Number of posts').doc(user!.uid).get();
-    if(docsnap.exists){
+
+  int count = 0;
+
+  Future<void> fetchpostscount() async {
+    final user = _auth.currentUser;
+    final docsnap = await _firestore.collection('Number of posts').doc(
+        user!.uid).get();
+    if (docsnap.exists) {
       setState(() {
-        count=docsnap.data()?['post count'];
+        count = docsnap.data()?['post count'];
       });
-    }
-  }
-  Future<void> _uploadImage() async {
-    try {
-      final user = _auth.currentUser;
-      if (user != null && _image != null) {
-        setState(() {
-          _uploading = true;
-        });
-        final ref =
-        _storage.ref().child('profile_pictures/${user.uid}');
-        await ref.putFile(_image!);
-        final imageUrl = await ref.getDownloadURL();
-
-        await user.updateProfile(photoURL: imageUrl);
-
-        // Store the URL in Firestore
-        await _firestore.collection('profile_pictures').doc(user.uid).set({
-          'url_user1': imageUrl,
-          'time stamp': FieldValue.serverTimestamp(),
-        });
-
-        setState(() {
-          _uploading = false;
-          _imageUrl = imageUrl;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          backgroundColor: Colors.green,
-          content: Text('Profile picture uploaded successfully!'),
-        ));
-      }
-    } catch (e) {
-      setState(() {
-        _uploading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        backgroundColor: Colors.red,
-        content: Text('Error uploading profile picture: $e'),
-      ));
     }
   }
 
   String userbio = '';
+
   Future<void> fetchusername() async {
     final user = _auth.currentUser;
     try {
@@ -131,6 +101,110 @@ class _Account_pageState extends State<Account_page> {
       }
     } catch (e) {
       print(e);
+    }
+  }
+
+  int following = 0;
+
+  Future<void> fetchfollowing() async {
+    final user = _auth.currentUser;
+    final docsnap = await _firestore.collection('Users Followers Count').doc(
+        user!.uid).get();
+    if (docsnap.exists) {
+      setState(() {
+        following = docsnap.data()?['followers count'];
+      });
+    }
+  }
+
+  String link = '';
+
+  Future<void> fetchlink() async {
+    final user = _auth.currentUser;
+    try {
+      final docsnap =
+      await _firestore.collection('User Details').doc(user!.uid).get();
+      if (docsnap.exists) {
+        setState(() {
+          link = docsnap.data()?['link'];
+        });
+        print(link);
+      }
+    } catch (e) {
+      print('link error:$e');
+    }
+  }
+
+  Future<void> updateImagesPeriodically() async {
+    while (true) {
+      await Future.delayed(Duration(seconds: 2));
+      fetchfollowerscount();
+      fetchfollowing();
+      fetchverification();
+    }
+  }
+  List<String> imageUrls = [];
+
+  Future<void> fetchImages() async {
+    final user = _auth.currentUser;
+
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('Posts')
+          .doc(user?.uid)
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['posts'] as List?) ?? [];
+          setState(() {
+            imageUrls =
+                posts.map((post) => post['imageUrl'].toString()).toList();
+          });
+        }
+      }
+    } catch (e) {
+      print('Error fetching images: $e');
+    }
+  }
+
+  Future<void> _launchURl() async {
+    final user = _auth.currentUser;
+    try {
+      await fetchlink();
+      final Uri _url = Uri.parse(link);
+      if (!await launchUrl(_url)) {
+        throw "Cannot Launch $_url";
+      }
+    } catch (e) {
+      print('Error launching URL: $e');
+    }
+  }
+
+  List<String> reelsurls = [];
+
+  Future<void> fetchreels() async {
+    final user = _auth.currentUser;
+
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('Reels')
+          .doc(user?.uid)
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['reels'] as List?) ?? [];
+          setState(() {
+            reelsurls =
+                posts.map((post) => post['mediaUrl'].toString()).toList();
+          });
+        }
+      }
+    } catch (e) {
+      print('Error fetching images: $e');
     }
   }
 
@@ -148,114 +222,20 @@ class _Account_pageState extends State<Account_page> {
       print('bio error:$e');
     }
   }
-  int following=0;
-  Future<void> fetchfollowing() async{
-    final user=_auth.currentUser;
-    final docsnap=await _firestore.collection('Users Followers Count').doc(user!.uid).get();
-    if(docsnap.exists){
-      setState(() {
-        following=docsnap.data()?['followers count'];
-      });
-    }
-  }
-  String link = '';
-  Future<void> fetchlink() async {
-    final user = _auth.currentUser;
-    try {
-      final docsnap =
-      await _firestore.collection('User Details').doc(user!.uid).get();
-      if (docsnap.exists) {
-        setState(() {
-          link = docsnap.data()?['link'];
-        });
-        print(link);
-      }
-    } catch (e) {
-      print('link error:$e');
-    }
-  }
-  List<String> imageUrls = [];
-  Future<void> updateImagesPeriodically() async {
-    while (true) {
-      await Future.delayed(Duration(seconds: 2));
-      fetchImages();
-      fetchfollowerscount();
-      fetchfollowing();
-      fetchverification();
-    }
-  }
-
-  Future<void> fetchImages() async {
-    final user = _auth.currentUser;
-
-    try {
-      DocumentSnapshot documentSnapshot = await _firestore
-          .collection('Posts')
-          .doc(user?.uid)
-          .get();
-
-      if (documentSnapshot.exists) {
-        dynamic data = documentSnapshot.data();
-        if (data != null) {
-          List<dynamic> posts = (data['posts'] as List?) ?? [];
-          setState(() {
-            imageUrls = posts.map((post) => post['imageUrl'].toString()).toList();
-          });
-        }
-      }
-    } catch (e) {
-      print('Error fetching images: $e');
-    }
-  }
-  List<String> reelsurls=[];
-  Future<void> fetchreels() async {
-    final user = _auth.currentUser;
-
-    try {
-      DocumentSnapshot documentSnapshot = await _firestore
-          .collection('Reels')
-          .doc(user?.uid)
-          .get();
-
-      if (documentSnapshot.exists) {
-        dynamic data = documentSnapshot.data();
-        if (data != null) {
-          List<dynamic> posts = (data['reels'] as List?) ?? [];
-          setState(() {
-            reelsurls = posts.map((post) => post['mediaUrl'].toString()).toList();
-          });
-        }
-      }
-    } catch (e) {
-      print('Error fetching images: $e');
-    }
-  }
   @override
   void initState() {
+    // TODO: implement initState
     super.initState();
+    fetchverification();
     fetchusername();
-    fetchbio();
-    _loadProfilePicture();
+    fetchfollowing();
+    fetchfollowerscount();
     fetchlink();
     fetchpostscount();
-    updateImagesPeriodically();
-    fetchfollowerscount();
-    fetchfollowing();
-    fetchverification();
+    _loadProfilePicture();
+    fetchbio();
     fetchreels();
-  }
-
-  Future<void> _launchURl() async {
-    final user = _auth.currentUser;
-    try {
-      await fetchlink();
-      final Uri _url = Uri.parse(link);
-      if (!await launchUrl(_url)) {
-        throw "Cannot Launch $_url";
-      }
-    } catch (e) {
-      print('Error launching URL: $e');
-    }
+    fetchImages();
   }
 
   @override
@@ -273,7 +253,8 @@ class _Account_pageState extends State<Account_page> {
               width: 5,
             ),
             if(isverified)
-              Image.network('https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
+              Image.network(
+                'https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
                 height: 30,
                 width: 30,
               )
@@ -282,22 +263,22 @@ class _Account_pageState extends State<Account_page> {
         backgroundColor: Colors.black,
         automaticallyImplyLeading: false,
         actions: [
-          IconButton(onPressed: (){
+          IconButton(onPressed: () {
             showDialog(context: context, builder: (context) {
               return AlertDialog(
                 backgroundColor: Colors.white,
                 title: Center(
-                  child: Text('Really want to sign out?',style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20
+                  child: Text('Really want to sign out?', style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20
                   ),),
                 ),
                 actions: [
                   Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Do you really want to sign out?',style: TextStyle(
-                        fontWeight: FontWeight.w300
+                      Text('Do you really want to sign out?', style: TextStyle(
+                          fontWeight: FontWeight.w300
                       ),),
                       SizedBox(
                         height: 20,
@@ -305,24 +286,30 @@ class _Account_pageState extends State<Account_page> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          ElevatedButton(onPressed: (){
+                          ElevatedButton(onPressed: () {
                             Navigator.pop(context);
                           },
-                              child: Text('Cancel',style: TextStyle(
-                            color: Colors.black
+                            child: Text('Cancel', style: TextStyle(
+                                color: Colors.black
+                            ),
+                            ),
+                            style: ButtonStyle(
+                                backgroundColor: MaterialStatePropertyAll(
+                                    Colors.green)),
                           ),
-                              ),
-                            style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.green)),
-                          ),
-                          ElevatedButton(onPressed: (){
+                          ElevatedButton(onPressed: () {
                             _auth.signOut();
-                            Navigator.pushReplacement(context, MaterialPageRoute(builder:(context) => MyHomePage(),));
+                            Navigator.pushReplacement(context,
+                                MaterialPageRoute(
+                                  builder: (context) => MyHomePage(),));
                           },
-                            child: Text('Sign Out',style: TextStyle(
+                            child: Text('Sign Out', style: TextStyle(
                                 color: Colors.white
                             ),
                             ),
-                            style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.red)),
+                            style: ButtonStyle(
+                                backgroundColor: MaterialStatePropertyAll(
+                                    Colors.red)),
                           ),
                         ],
                       )
@@ -332,7 +319,7 @@ class _Account_pageState extends State<Account_page> {
               );
             },);
           },
-              icon: Icon(Icons.logout_rounded,color: Colors.white,)),
+              icon: Icon(Icons.logout_rounded, color: Colors.white,)),
           IconButton(
             onPressed: () {
               showDialog(context: context,
@@ -344,29 +331,30 @@ class _Account_pageState extends State<Account_page> {
                         height: 20,
                       ),
                       Center(
-                        child: TextButton(onPressed: (){
+                        child: TextButton(onPressed: () {
                           Navigator.pop(context);
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) =>Postpage() ),
+                            MaterialPageRoute(builder: (context) => Postpage()),
                           );
-
-                        }, child: Text('Upload a Photo',style: TextStyle(color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15
-                        ),)),
+                        }, child: Text('Upload a Photo',
+                          style: TextStyle(color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15
+                          ),)),
                       ),
                       Center(
-                        child: TextButton(onPressed: (){
+                        child: TextButton(onPressed: () {
                           Navigator.pop(context);
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => Reels_page(isImage: false), // Set to true if it's an image
+                              builder: (context) => Reels_page(
+                                  isImage: false), // Set to true if it's an image
                             ),
                           );
-
-                        }, child: Text('Upload Reels',style: TextStyle(color: Colors.white,
+                        }, child: Text(
+                          'Upload Reels', style: TextStyle(color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 15
                         ),)),
@@ -375,7 +363,7 @@ class _Account_pageState extends State<Account_page> {
                   );
                 },);
             },
-            icon: Icon(Icons.add_box_outlined, color: Colors.white,size: 30,),
+            icon: Icon(Icons.add_box_outlined, color: Colors.white, size: 30,),
           )
         ],
       ),
@@ -442,17 +430,20 @@ class _Account_pageState extends State<Account_page> {
                     children: [
                       Text(
                         '$count',
-                        style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: CupertinoColors.white,
+                            fontWeight: FontWeight.bold),
                       ),
-                      if(count==0 || count==1)
+                      if(count == 0 || count == 1)
                         Text(
                           'Post',
-                          style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: CupertinoColors.white,
+                              fontWeight: FontWeight.bold),
                         ),
-                      if(count>1)
+                      if(count > 1)
                         Text(
                           'Posts',
-                          style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: CupertinoColors.white,
+                              fontWeight: FontWeight.bold),
                         ),
                     ],
                   ),
@@ -465,11 +456,17 @@ class _Account_pageState extends State<Account_page> {
                     SizedBox(
                       height: 2,
                     ),
-                    Text('$followerscount',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
-                    if(followerscount<=1)
-                      Text('Follower',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
-                    if(followerscount>1)
-                      Text('Followers',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),)
+                    Text('$followerscount', style: TextStyle(
+                        color: CupertinoColors.white,
+                        fontWeight: FontWeight.bold),),
+                    if(followerscount <= 1)
+                      Text('Follower', style: TextStyle(
+                          color: CupertinoColors.white,
+                          fontWeight: FontWeight.bold),),
+                    if(followerscount > 1)
+                      Text('Followers', style: TextStyle(
+                          color: CupertinoColors.white,
+                          fontWeight: FontWeight.bold),)
                   ],
                 ),
                 SizedBox(
@@ -480,11 +477,17 @@ class _Account_pageState extends State<Account_page> {
                     SizedBox(
                       height: 1,
                     ),
-                    Text('$following',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
-                    if(following<=1)
-                      Text('Following',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
-                    if(following>1)
-                      Text('Following',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),)
+                    Text('$following', style: TextStyle(
+                        color: CupertinoColors.white,
+                        fontWeight: FontWeight.bold),),
+                    if(following <= 1)
+                      Text('Following', style: TextStyle(
+                          color: CupertinoColors.white,
+                          fontWeight: FontWeight.bold),),
+                    if(following > 1)
+                      Text('Following', style: TextStyle(
+                          color: CupertinoColors.white,
+                          fontWeight: FontWeight.bold),)
                   ],
                 ),
               ],
@@ -511,7 +514,8 @@ class _Account_pageState extends State<Account_page> {
                 SizedBox(width: 20),
                 Text(
                   userbio != null && userbio!.length > 50
-                      ? '${userbio!.substring(0, 50)}\n${userbio!.substring(50)}'
+                      ? '${userbio!.substring(0, 50)}\n${userbio!.substring(
+                      50)}'
                       : userbio!,
                   style: TextStyle(color: Colors.white),
                 ),
@@ -563,6 +567,7 @@ class _Account_pageState extends State<Account_page> {
                 SizedBox(
                   width: 20,
                 ),
+
                 Align(
                   alignment: Alignment.topRight,
                   child: ElevatedButton(
@@ -588,74 +593,68 @@ class _Account_pageState extends State<Account_page> {
                 SizedBox(
                   width: 110,
                 ),
-                IconButton(onPressed: (){}, icon: Icon(CupertinoIcons.photo,color: Colors.white,)),
+                IconButton(onPressed: () {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (context) => NavBar(),));
+                }, icon: Icon(CupertinoIcons.photo, color: Colors.grey,)),
                 SizedBox(
                   width: 80,
                 ),
-                if(reelsurls.length>0)
-                  IconButton(onPressed: (){
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => Reelpage_account()));
-                  }, icon: Icon(Icons.movie,color: Colors.grey,)),
+                if(reelsurls.length > 0)
+                  IconButton(onPressed: () {},
+                      icon: Icon(Icons.movie, color: Colors.white,)),
               ],
             ),
+            SizedBox(height: 20),
+            if (reelsurls.isNotEmpty)
+              GridView.builder(
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 4.0,
+                  mainAxisSpacing: 4.0,
+                ),
+                itemCount: reelsurls.length,
+                itemBuilder: (context, index) {
+                  VideoPlayerController videoPlayerController =
+                  VideoPlayerController.networkUrl(Uri.parse(reelsurls[index]));
 
-            for (int i = 0; i < imageUrls.length; i += 2)
-              Column(
-                children: [
-                  SizedBox(height: 20), // Add a gap of 20 pixels between new rows
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      SizedBox(width: 20),
-                      if (i < imageUrls.length)
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => detailpostpage(startIndex: i),
-                              ),
-                            );
-                          },
-                          style: ButtonStyle(
-                            backgroundColor: MaterialStateProperty.all(Colors.black),
-                          ),
-                          child: Image.network(
-                            imageUrls[i],
-                            width: 120,
-                            height: 120,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      SizedBox(width: 10),
-                      if (i + 1 < imageUrls.length)
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => detailpostpage(startIndex: i + 1),
-                              ),
-                            );
-                          },
-                          style: ButtonStyle(
-                            backgroundColor: MaterialStateProperty.all(Colors.black),
-                          ),
-                          child: Image.network(
-                            imageUrls[i + 1],
-                            width: 120,
-                            height: 120,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      SizedBox(width: 10), // Add a gap of 10 pixels at the end of each row
-                    ],
-                  ),
-                ],
+                  ChewieController chewieController = ChewieController(
+                    videoPlayerController: videoPlayerController,
+                    aspectRatio: 1,
+                    autoInitialize: true, // Set to true for auto-initializing
+                    autoPlay: true,
+                    looping: true, // Set to true for looping
+                    allowedScreenSleep: false,
+                    showControls: false, // Set to false to hide controls
+                    placeholder: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+
+                  // Add error handling
+                  videoPlayerController.addListener(() {
+                    if (videoPlayerController.value.hasError) {
+                      print(
+                          'Video Player Error: ${videoPlayerController.value.errorDescription}');
+                    }
+                  });
+
+                  return GestureDetector(
+                    onTap: () {
+                      // Handle tap on a reel (if needed)
+                    },
+                    child: Container(
+                      width: 120,
+                      height: 150,
+                      child: Chewie(
+                        controller: chewieController,
+                      ),
+                    ),
+                  );
+                },
               ),
-// Add a gap of 20 pixels between new rows
-
-            // Add a gap of 20 pixels between new rows
           ],
         ),
       ),

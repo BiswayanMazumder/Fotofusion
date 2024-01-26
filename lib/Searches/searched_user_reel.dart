@@ -1,27 +1,28 @@
 import 'dart:io';
 import 'dart:math';
+import 'package:chewie/chewie.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:fotofusion/Searches/searched_user_reel.dart';
 import 'package:fotofusion/account%20page/edit_profile.dart';
 import 'package:fotofusion/pages/search_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 
-class Searchresult extends StatefulWidget {
+class Searchuserreels extends StatefulWidget {
   final String userid;
 
-  Searchresult({required this.userid});
+  Searchuserreels({required this.userid});
 
   @override
-  State<Searchresult> createState() => _SearchresultState();
+  State<Searchuserreels> createState() => _SearchuserreelsState();
 }
 
-class _SearchresultState extends State<Searchresult> {
+class _SearchuserreelsState extends State<Searchuserreels> {
   FirebaseAuth _auth = FirebaseAuth.instance;
   FirebaseFirestore _firestore = FirebaseFirestore.instance;
   String username = 'Loading';
@@ -209,31 +210,31 @@ class _SearchresultState extends State<Searchresult> {
     await fetchfollowerscount();
 
     // Only decrement the count if it is greater than 0
-      setState(() {
-        followerscount -= 1;
-        if(following>0){
-          following -= 1; // Decrement the following count
+    setState(() {
+      followerscount -= 1;
+      if(following>0){
+        following -= 1; // Decrement the following count
+      }
+      else{
+        following=0;
+      }
+    });
+
+    await _firestore.collection('Followers Count').doc(widget.userid).set({
+      'followers count': followerscount,
+    });
+
+    await _firestore.collection('Users Followers Count').doc(user!.uid).set({
+      'followers count': following,
+    });
+
+    await _firestore.collection('Followers').doc(widget.userid).set({
+      'Followers': FieldValue.arrayRemove([
+        {
+          'followerUid': user.uid,
         }
-        else{
-          following=0;
-        }
-      });
-
-      await _firestore.collection('Followers Count').doc(widget.userid).set({
-        'followers count': followerscount,
-      });
-
-      await _firestore.collection('Users Followers Count').doc(user!.uid).set({
-        'followers count': following,
-      });
-
-      await _firestore.collection('Followers').doc(widget.userid).set({
-        'Followers': FieldValue.arrayRemove([
-          {
-            'followerUid': user.uid,
-          }
-        ]),
-      }, SetOptions(merge: true));
+      ]),
+    }, SetOptions(merge: true));
 
     print('user id: ${user!.uid}');
     print('widget id ${widget.userid}');
@@ -392,7 +393,7 @@ class _SearchresultState extends State<Searchresult> {
             ),
             if(isverified)
               Image.network('https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
-              height: 40,
+                height: 40,
                 width: 40,
               )
           ],
@@ -573,9 +574,9 @@ class _SearchresultState extends State<Searchresult> {
                           isfollowed?unfollow():updatefollower();
                           fetchFollowers();
                         },
-                        style: ButtonStyle(
-                          backgroundColor: isfollowed?MaterialStatePropertyAll(Colors.grey[800]):MaterialStatePropertyAll(Colors.blue)
-                        ),    
+                            style: ButtonStyle(
+                                backgroundColor: isfollowed?MaterialStatePropertyAll(Colors.grey[800]):MaterialStatePropertyAll(Colors.blue)
+                            ),
                             child: isfollowed?Text('Following',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),):
                             Text('Follow',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),)
                         )
@@ -619,69 +620,65 @@ class _SearchresultState extends State<Searchresult> {
                 SizedBox(
                   width: 110,
                 ),
-                IconButton(onPressed: (){}, icon: Icon(CupertinoIcons.photo,color: Colors.white,)),
+                IconButton(onPressed: (){}, icon: Icon(CupertinoIcons.photo,color: Colors.grey,)),
                 SizedBox(
                   width: 80,
                 ),
                 if(reelsurls.length>0)
                   IconButton(onPressed: (){
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => Searchuserreels(userid: widget.userid)));
-                  }, icon: Icon(Icons.movie,color: Colors.grey,)),
+                    // Navigator.push(context, MaterialPageRoute(builder: (context) => Reelpage_account()));
+                  }, icon: Icon(Icons.movie,color: Colors.white,)),
               ],
             ),
-            for (int i = 0; i < imageUrls.length; i += 2)
-              Column(
-                children: [
-                  SizedBox(height: 20), // Add a gap of 20 pixels between new rows
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      SizedBox(width: 20),
-                      if (i < imageUrls.length)
-                        ElevatedButton(
-                          onPressed: () {
-                            // Navigator.push(
-                            //   context,
-                            //   MaterialPageRoute(
-                            //     builder: (context) => detailpostpage(startIndex: i),
-                            //   ),
-                            // );
-                          },
-                          style: ButtonStyle(
-                            backgroundColor: MaterialStateProperty.all(Colors.black),
-                          ),
-                          child: Image.network(
-                            imageUrls[i],
-                            width: 120,
-                            height: 120,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      SizedBox(width: 10),
-                      if (i + 1 < imageUrls.length)
-                        ElevatedButton(
-                          onPressed: () {
-                            // Navigator.push(
-                            //   context,
-                            //   MaterialPageRoute(
-                            //     builder: (context) => detailpostpage(startIndex: i + 1),
-                            //   ),
-                            // );
-                          },
-                          style: ButtonStyle(
-                            backgroundColor: MaterialStateProperty.all(Colors.black),
-                          ),
-                          child: Image.network(
-                            imageUrls[i + 1],
-                            width: 120,
-                            height: 120,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      SizedBox(width: 10), // Add a gap of 10 pixels at the end of each row
-                    ],
-                  ),
-                ],
+            SizedBox(height: 20),
+            if (reelsurls.isNotEmpty)
+              GridView.builder(
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 4.0,
+                  mainAxisSpacing: 4.0,
+                ),
+                itemCount: reelsurls.length,
+                itemBuilder: (context, index) {
+                  VideoPlayerController videoPlayerController =
+                  VideoPlayerController.networkUrl(Uri.parse(reelsurls[index]));
+
+                  ChewieController chewieController = ChewieController(
+                    videoPlayerController: videoPlayerController,
+                    aspectRatio: 1,
+                    autoInitialize: true, // Set to true for auto-initializing
+                    autoPlay: true,
+                    looping: true, // Set to true for looping
+                    allowedScreenSleep: false,
+                    showControls: false, // Set to false to hide controls
+                    placeholder: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+
+                  // Add error handling
+                  videoPlayerController.addListener(() {
+                    if (videoPlayerController.value.hasError) {
+                      print(
+                          'Video Player Error: ${videoPlayerController.value.errorDescription}');
+                    }
+                  });
+
+                  return GestureDetector(
+                    onTap: () {
+                      // Handle tap on a reel (if needed)
+                    },
+                    child: Container(
+                      width: 120,
+                      height: 150,
+                      child: Chewie(
+                        controller: chewieController,
+                      ),
+                    ),
+                  );
+                },
               ),
 // Add a gap of 20 pixels between new rows
 

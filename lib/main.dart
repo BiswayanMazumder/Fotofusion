@@ -181,8 +181,8 @@ class _MyHomePageState extends State<MyHomePage> {
                 },
                     child: Text('Create an account',style: TextStyle(color: Colors.white,fontWeight:FontWeight.bold),))
               ],
-            )
-          ],
+            ),
+               ],
         ),
       ),
     );

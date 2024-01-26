@@ -1,6 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:fotofusion/account%20page/user_account.dart';
+import 'package:flutter/material.dart';
 import 'package:fotofusion/navbar.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -8,49 +7,35 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:elegant_notification/elegant_notification.dart';
-class Postpage extends StatefulWidget {
-  const Postpage({Key? key}) : super(key: key);
+
+class Reels_page extends StatefulWidget {
+  final bool isImage;
+
+  Reels_page({required this.isImage});
 
   @override
-  State<Postpage> createState() => _PostpageState();
+  _Reels_pageState createState() => _Reels_pageState();
 }
 
-class _PostpageState extends State<Postpage> {
+class _Reels_pageState extends State<Reels_page> {
   String? _imageUrl;
-  String username = 'Loading';
   bool _uploading = false;
+  File? _mediaFile;
   TextEditingController _captionController = TextEditingController();
+  TextEditingController _locationController = TextEditingController();
   FirebaseAuth _auth = FirebaseAuth.instance;
   FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final ImagePicker _imagePicker = ImagePicker();
-  File? _image;
   final FirebaseStorage _storage = FirebaseStorage.instance;
   bool _upload = true;
-  TextEditingController _locationController=TextEditingController();
-  Future<int> _getCurrentPostNumber(String userId) async {
-    try {
-      // Get the document containing the user's profile picture data
-      DocumentSnapshot docSnapshot =
-      await _firestore.collection('Posts').doc(userId).get();
+  String username = 'Loading';
 
-      // Check if the document exists
-      if (docSnapshot.exists) {
-        // Extract the data as a Map
-        Map<String, dynamic> data =
-        docSnapshot.data() as Map<String, dynamic>;
-
-        // Count the number of 'url_' fields to determine the current number of posts
-        int numberOfPosts =
-            data.keys.where((key) => key.startsWith('url_')).length;
-        return numberOfPosts;
-      } else {
-        // If the document doesn't exist, there are no posts yet
-        return 0;
-      }
-    } catch (e) {
-      print('Error getting current post number: $e');
-      return 0;
-    }
+  @override
+  void initState() {
+    super.initState();
+    _loadProfilePicture();
+    fetchpostscount();
+    fetchusername();
   }
 
   Future<void> _loadProfilePicture() async {
@@ -69,27 +54,179 @@ class _PostpageState extends State<Postpage> {
       }
     }
   }
-  Future<void> fetchusername()async{
-    final user=_auth.currentUser;
-    try{
-      final docsnap=await _firestore.collection('User Details').doc(user!.uid).get();
-      if(docsnap.exists){
-        setState(() {
-          username=docsnap.data()?['user name'];
 
+  Future<void> fetchusername() async {
+    final user = _auth.currentUser;
+    try {
+      final docsnap =
+      await _firestore.collection('User Details').doc(user!.uid).get();
+      if (docsnap.exists) {
+        setState(() {
+          username = docsnap.data()?['user name'];
         });
       }
-    }catch(e){
+    } catch (e) {
       print(e);
     }
   }
-  @override
-  void initState() {
-    super.initState();
-    _loadProfilePicture();
-    fetchpostscount();
-    fetchusername();
-    fetchverification();
+
+  int count = 0;
+
+  Future<void> fetchpostscount() async {
+    final user = _auth.currentUser;
+    final docsnap =
+    await _firestore.collection('Number of posts').doc(user!.uid).get();
+    if (docsnap.exists) {
+      setState(() {
+        count = docsnap.data()?['post count'];
+      });
+    }
+  }
+  Future<void> _uploadPost() async {
+    final user = _auth.currentUser;
+    if (user != null && _mediaFile != null) {
+      setState(() {
+        _uploading = true;
+      });
+
+      try {
+        // Use set with merge option instead of update
+        await _firestore.collection('Reels').doc(user.uid).set({
+          'reels': FieldValue.arrayUnion([
+            {
+              'mediaUrl': await _uploadMediaFile(),
+              'caption': _captionController.text,
+              'location': _locationController.text,
+              'isImage': _mediaFile!.path.endsWith('.jpg'), // Check if it's an image or video
+            },
+          ]),
+        }, SetOptions(merge: true));
+        await uploadpostcount();
+        await fetchpostscount();
+
+        setState(() {
+          _uploading = false;
+        });
+
+        // Navigate to the user's account page after posting
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => NavBar()),
+        );
+      } catch (e) {
+        print('Error uploading post: $e');
+        setState(() {
+          _uploading = false;
+        });
+      }
+    } else if (_mediaFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: Colors.red,
+        content: Text('Please select a media file'),
+      ));
+    }
+  }
+
+  Future<void> uploadpostcount() async {
+    try {
+      final user = _auth.currentUser;
+      setState(() {
+        count += 1;
+      });
+      await _firestore.collection('Number of posts').doc(user!.uid).set({
+        'post count': count,
+      });
+
+    } catch (e) {
+
+    }
+  }
+
+  Future<void> _uploadMedia() async {
+    final user = _auth.currentUser;
+
+    if (user != null && _mediaFile != null) {
+      setState(() {
+        _uploading = true;
+      });
+
+      try {
+        await _firestore.collection('All posts').doc('Global Reels').set({
+          'Reels': FieldValue.arrayUnion([
+            {
+              'mediaUrl': await _uploadMediaFile(),
+              'caption': _captionController.text,
+              'username': username,
+              'profile photo': _imageUrl,
+              'location': _locationController.text,
+              'isImage': widget.isImage,
+            },
+          ]),
+        }, SetOptions(merge: true));
+
+        await fetchpostscount();
+
+        setState(() {
+          _uploading = false;
+        });
+
+        // Navigate to the user's account page after posting
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => NavBar()),
+        );
+      } catch (e) {
+        print('Error uploading post: $e');
+        setState(() {
+          _uploading = false;
+        });
+      }
+    } else if (_mediaFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: Colors.red,
+        content: Text('Please select a video'),
+      ));
+
+    }
+  }
+
+  Future<String> _uploadMediaFile() async {
+    final user = _auth.currentUser;
+
+    // Define the path for the new media file in Firebase Storage
+    String mediaPath = 'Reels/${user!.uid}/reels_${DateTime.now().millisecondsSinceEpoch}';
+
+    // Upload the media file to Firebase Storage
+    TaskSnapshot uploadTask =
+    await _storage.ref('$mediaPath.${widget.isImage ? 'jpg' : 'mp4'}').putFile(_mediaFile!);
+
+    // Get the download URL of the uploaded media file
+    return await uploadTask.ref.getDownloadURL();
+  }
+
+  Future<void> _pickMedia() async {
+    final user = _auth.currentUser;
+    if (user!.emailVerified) {
+      final pickedFile = await (widget.isImage
+          ? _imagePicker.pickImage(source: ImageSource.gallery)
+          : _imagePicker.pickVideo(source: ImageSource.gallery));
+      if (pickedFile != null) {
+        setState(() {
+          _mediaFile = File(pickedFile.path);
+          _upload = false;
+        });
+      }
+    } else {
+      final pickedFile = await (widget.isImage
+          ? _imagePicker.pickImage(source: ImageSource.gallery)
+          : _imagePicker.pickVideo(source: ImageSource.gallery));
+      if (pickedFile != null) {
+        setState(() {
+          _mediaFile = File(pickedFile.path);
+          _upload = false;
+        });
+      }
+    }
   }
 
   @override
@@ -99,7 +236,7 @@ class _PostpageState extends State<Postpage> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         title: Text(
-          'Upload a post',
+          'Upload a ${widget.isImage ? 'Image' : 'Video'}',
           style: TextStyle(
               color: CupertinoColors.white, fontWeight: FontWeight.bold),
         ),
@@ -115,8 +252,8 @@ class _PostpageState extends State<Postpage> {
         actions: [
           TextButton(
             onPressed: () {
+              _uploadMedia();
               _uploadPost();
-              _uploadPosts();
             },
             child: Text(
               'Post',
@@ -199,19 +336,23 @@ class _PostpageState extends State<Postpage> {
                 ),
                 suffixIcon: _upload
                     ? IconButton(
-                  onPressed: _pickImage,
+                  onPressed: () {
+                    _pickMedia();
+                  },
                   icon: Icon(Icons.upload, color: CupertinoColors.white),
                 )
-                    : _image != null
+                    : _mediaFile != null
                     ? Container(
                   width: 50,
                   height: 50,
                   decoration: BoxDecoration(
                     shape: BoxShape.rectangle,
-                    image: DecorationImage(
-                      image: FileImage(_image!),
+                    image: widget.isImage
+                        ? DecorationImage(
+                      image: FileImage(_mediaFile!),
                       fit: BoxFit.cover,
-                    ),
+                    )
+                        : null, // Displaying video thumbnail is more complex and may require additional packages.
                   ),
                 )
                     : Container(),
@@ -295,170 +436,18 @@ class _PostpageState extends State<Postpage> {
       ),
     );
   }
+}
 
-  Future<void> _pickImage() async {
-    final user = _auth.currentUser;
-    if (user!.emailVerified) {
-      final pickedFile = await _imagePicker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null) {
-        setState(() {
-          _image = File(pickedFile.path);
-          _upload = false;
-        });
-      }
-    } else {
-      final pickedFile = await _imagePicker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null) {
-        setState(() {
-          _image = File(pickedFile.path);
-          _upload = false;
-        });
-      }
-    }
+class ImageUploader extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Reels_page(isImage: true);
   }
-  int count=0;
-  Future<void> fetchpostscount() async{
-    final user=_auth.currentUser;
-    final docsnap=await _firestore.collection('Number of posts').doc(user!.uid).get();
-    if(docsnap.exists){
-      setState(() {
-        count=docsnap.data()?['post count'];
-      });
-    }
-  }
-  Future<void> uploadpostcount() async {
-    try{
-      final user = _auth.currentUser;
-      setState(() {
-        count += 1;
-      });
-      await _firestore.collection('Number of posts').doc(user!.uid).set({
-        'post count': count,
-      });
-      ElegantNotification.success(
-          title:  Text("Posted"),
-          description:  Text("Your post has been succesfully uploaded")
-      ).show(context);
-    }catch(e){
-      ElegantNotification.error(
-          title:  Text("OOPS!"),
-          description:  Text("We encountered an error while posting")
-      ).show(context);
-    }
-  }
-  bool isverified=false;
-  Future<void> fetchverification() async{
-    final user=_auth.currentUser;
-    final docsnap=await _firestore.collection('Verifications').doc(user!.uid).get();
-    if(docsnap.exists){
-      setState(() {
-        isverified=docsnap.data()?['isverified'];
-      });
-    }
-  }
-  Future<void> _uploadPosts() async {
-    final user = _auth.currentUser;
-    if (user != null && _image != null) {
-      setState(() {
-        _uploading = true;
-      });
+}
 
-      try {
-        // Use set with merge option instead of update
-        await _firestore.collection('All posts').doc('Global Post').set({
-          'posts': FieldValue.arrayUnion([
-            {
-              'imageUrl': await _uploadImage(),
-              'caption': _captionController.text,
-              'username':username,
-              'profile photo':_imageUrl,
-              'location':_locationController.text,
-              'Verification':isverified
-            },
-          ]),
-        }, SetOptions(merge: true));
-        await fetchpostscount();
-
-        setState(() {
-          _uploading = false;
-        });
-
-        // Navigate to the user's account page after posting
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => NavBar()),
-        );
-      } catch (e) {
-        print('Error uploading post: $e');
-        setState(() {
-          _uploading = false;
-        });
-      }
-    } else if (_image == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        backgroundColor: Colors.red,
-        content: Text('Please select an image'),
-      ));
-      ElegantNotification.error(
-          title:  Text("Error"),
-          description:  Text("Please select an image")
-      ).show(context);
-    }
-  }
-  Future<void> _uploadPost() async {
-    final user = _auth.currentUser;
-    if (user != null && _image != null) {
-      setState(() {
-        _uploading = true;
-      });
-
-      try {
-        // Use set with merge option instead of update
-        await _firestore.collection('Posts').doc(user.uid).set({
-          'posts': FieldValue.arrayUnion([
-            {
-              'imageUrl': await _uploadImage(),
-              'caption': _captionController.text,
-              'location':_locationController.text
-            },
-          ]),
-        }, SetOptions(merge: true));
-        await uploadpostcount();
-        await fetchpostscount();
-
-        setState(() {
-          _uploading = false;
-        });
-
-        // Navigate to the user's account page after posting
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => NavBar()),
-        );
-      } catch (e) {
-        print('Error uploading post: $e');
-        setState(() {
-          _uploading = false;
-        });
-      }
-    } else if (_image == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        backgroundColor: Colors.red,
-        content: Text('Please select an image'),
-      ));
-    }
-  }
-
-
-  Future<String> _uploadImage() async {
-    // Define the path for the new image in Firebase Storage
-    final user=_auth.currentUser;
-    String imagePath = 'posts/${user!.uid}/post_${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-    // Upload the image to Firebase Storage
-    TaskSnapshot uploadTask = await _storage.ref(imagePath).putFile(_image!);
-
-    // Get the download URL of the uploaded image
-    return await uploadTask.ref.getDownloadURL();
+class VideoUploader extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Reels_page(isImage: false);
   }
 }

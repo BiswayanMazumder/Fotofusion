@@ -1,7 +1,17 @@
+import 'dart:io';
+import 'package:fotofusion/Chatbots/chatbot.dart';
+import 'package:fotofusion/account%20page/comment_page.dart';
+import 'package:fotofusion/pages/homepage.dart';
+import 'package:fotofusion/pages/report_page.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
+import 'package:all_vibrate/all_vibrate.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:shake/shake.dart';
+
 class Homepage extends StatefulWidget {
   const Homepage({Key? key}) : super(key: key);
 
@@ -19,13 +29,15 @@ class _HomepageState extends State<Homepage> {
   FirebaseFirestore _firestore = FirebaseFirestore.instance;
   int numberOfPosts = 0;
   bool isLoading = false;
-  String location='';
-  bool isverified=true;
+  String location = '';
+  bool isverified = true;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // You can also perform initialization here based on inherited widgets
   }
+
   Future<void> showVerification() async {
     final user = _auth.currentUser;
 
@@ -58,16 +70,115 @@ class _HomepageState extends State<Homepage> {
     print('isverified $isverified');
   }
 
+  final screenshotController = ScreenshotController();
+
   @override
   void initState() {
     super.initState();
     initializeNumberOfPosts();
     initializeLikedUsersList();
     updateImagesPeriodically();
+    fetchverifications();
+    final vibrate = AllVibrate();
     showVerification();
+    ShakeDetector detector = ShakeDetector.autoStart(
+        onPhoneShake: () {
+          vibrate.simpleVibrate(period: 1500, amplitude: 200);
+          showDialog(context: context, builder:(context) {
+            return AlertDialog(
+              backgroundColor: Colors.black,
+              title: Center(
+                child: Text('Shake To Report',style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20
+                ),),
+              ),
+              scrollable: true,
+              actions: [
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      ElevatedButton(onPressed: (){
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => BugReportPage()));
+
+                      },
+                          style: ButtonStyle(
+                              backgroundColor: MaterialStatePropertyAll(Colors.grey[900])
+                          ),
+                          child: Text('Report a Bug',style: TextStyle(color: Colors.white,
+                              fontWeight: FontWeight.bold
+                          ),)),
+                      SizedBox(
+                        height: 20,
+                      ),
+                      ElevatedButton(onPressed: (){
+
+                      },
+                          style: ButtonStyle(
+                              backgroundColor: MaterialStatePropertyAll(Colors.grey[900])
+                          ),
+                          child: Text('Make a Suggestion',style: TextStyle(color: Colors.white,
+                              fontWeight: FontWeight.bold
+                          ),)),
+                      SizedBox(
+                        height: 20,
+                      ),
+                      ElevatedButton(onPressed: (){
+                      },
+                          style: ButtonStyle(
+                              backgroundColor: MaterialStatePropertyAll(Colors.grey[900])
+                          ),
+                          child: Text('Turn Off',style: TextStyle(color: Colors.white,
+                              fontWeight: FontWeight.bold
+                          ),)),
+                      SizedBox(
+                        height: 20,
+                      ),
+                      TextButton(onPressed: (){
+                        Navigator.pop(context);
+                      },
+                          child: Text('Cancel',style: TextStyle(color: Colors.grey,
+                              fontWeight: FontWeight.bold
+                          ),))
+                    ],
+                  ),
+                )
+              ],
+            );
+          }, );
+        }
+    );
   }
 
-  List<String> locations=[];
+
+  List<String> locations = [];
+  List<String> verification=[];
+  Future<void> fetchverifications() async {
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('All posts')
+          .doc('Global Post')
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['posts'] as List?) ?? [];
+
+          setState(() {
+            verification = posts
+                .map((post) => post['Verification'].toString())
+                .toList();
+          });
+        }
+      }
+    } catch (e) {
+      print('Error fetching profile photo: $e');
+    }
+  }
   Future<void> initializeNumberOfPosts() async {
     try {
       DocumentSnapshot documentSnapshot = await _firestore
@@ -105,6 +216,7 @@ class _HomepageState extends State<Homepage> {
       await fetchcaptions();
       await fetchInitialLikeStatus();
       await fetchlocations();
+      await fetchverifications();
     }
   }
 
@@ -154,6 +266,7 @@ class _HomepageState extends State<Homepage> {
       print('Error fetching profile photo: $e');
     }
   }
+
   Future<void> fetchlocations() async {
     try {
       DocumentSnapshot documentSnapshot = await _firestore
@@ -177,6 +290,7 @@ class _HomepageState extends State<Homepage> {
       print('Error fetching profile photo: $e');
     }
   }
+
   Future<void> fetchusernames() async {
     try {
       DocumentSnapshot documentSnapshot = await _firestore
@@ -190,7 +304,8 @@ class _HomepageState extends State<Homepage> {
           List<dynamic> posts = (data['posts'] as List?) ?? [];
 
           setState(() {
-            usernames = posts.map((post) => post['username'].toString()).toList();
+            usernames =
+                posts.map((post) => post['username'].toString()).toList();
           });
         }
       }
@@ -234,7 +349,8 @@ class _HomepageState extends State<Homepage> {
           List<dynamic> posts = (data['posts'] as List?) ?? [];
 
           setState(() {
-            imageUrls = posts.map((post) => post['imageUrl'].toString()).toList();
+            imageUrls =
+                posts.map((post) => post['imageUrl'].toString()).toList();
             isLoading = true;
           });
         }
@@ -244,14 +360,16 @@ class _HomepageState extends State<Homepage> {
     }
   }
 
-  Future<void> updateFirestoreLikedUsers(int index, List<String> newLikedUsers) async {
+  Future<void> updateFirestoreLikedUsers(
+      int index, List<String> newLikedUsers) async {
     final String currentUserUid = _auth.currentUser?.uid ?? '';
     try {
       CollectionReference allPostsCollection =
       FirebaseFirestore.instance.collection('All posts');
       DocumentReference postDocRef = allPostsCollection.doc('post$index');
       DocumentSnapshot postDoc = await postDocRef.get();
-      Map<String, dynamic> postData = postDoc.data() as Map<String, dynamic>? ?? {};
+      Map<String, dynamic> postData =
+          postDoc.data() as Map<String, dynamic>? ?? {};
       List<dynamic>? existingLikedUsersDynamic = postData['likedUsers'];
       List<String> existingLikedUsers =
           existingLikedUsersDynamic?.cast<String>() ?? [];
@@ -284,26 +402,44 @@ class _HomepageState extends State<Homepage> {
       likedUsers[index].length = count;
     });
   }
-  Future<void> ShowDialogue()async{
-    showDialog(context: context, builder: (context) {
-      return AlertDialog(
-        backgroundColor: Colors.green,
-        title: Text('Please verify yourself',style: TextStyle(color: Colors.black,fontWeight: FontWeight.bold),),
 
-      );
-    },);
+  Future<void> ShowDialogue() async {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.green,
+          title: Text(
+            'Please verify yourself',
+            style:
+            TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
+        );
+      },
+    );
   }
+
   @override
   Widget build(BuildContext context) {
     final String currentUserUid = _auth.currentUser?.uid ?? '';
 
     return Scaffold(
       backgroundColor: Colors.black,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => support_sections()),
+          );
+        },
+        backgroundColor: Colors.purple,
+        child: Icon(Icons.question_mark, color: Colors.white),
+      ),
       appBar: AppBar(
         backgroundColor: Colors.black,
         automaticallyImplyLeading: false,
         title: Text(
-          'FotoFusion',
+          '𝕱𝖔𝖙𝖔𝕱𝖚𝖘𝖎𝖔𝖓',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
@@ -312,123 +448,163 @@ class _HomepageState extends State<Homepage> {
           children: [
             SizedBox(height: 20),
             Column(
-              children: List.generate(min(numberOfPosts, likedUsers.length), (index) {
-                return Column(
-                  children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: Colors.black,
-                          child: Image.network(
-                            profilephotos[index],
-                            height: 40,
-                            width: 40,
-                          ),
-                        ),
-                        SizedBox(width: 10),
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              usernames[index],
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold
+              children: List.generate(
+                min(numberOfPosts, likedUsers.length),
+                    (index) {
+                  return Column(
+                    children: [
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              SizedBox(
+                                width: 20,
                               ),
-                            ),
-                            if (locations.isNotEmpty)
-                              Text(
-                                locations[index],
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
+                              CircleAvatar(
+                                radius: 20,
+                                backgroundColor: Colors.black,
+                                child: Image.network(
+                                  profilephotos[index],
+                                  height: 50,
+                                  width: 50,
                                 ),
                               ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 10),
-                    Image.network(
-                      imageUrls[index],
-                      height: 600,
-                      width: 600,
-                    ),
-
-                    SizedBox(height: 10),
-                    Row(
-                      children: [
-                        SizedBox(width: 10),
-                        Text(
-                          usernames[index],
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
+                              SizedBox(
+                                width: 10,
+                              ),
+                              Text(
+                                usernames[index],
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(
+                                width: 5,
+                              ),
+                              if (verification.isNotEmpty && verification[index] == 'true')
+                                Image.network(
+                                  'https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
+                                  height: 30,
+                                  width: 30,
+                                ),
+                            ],
                           ),
-                        ),
-                        SizedBox(width: 10),
-                        Text(
-                          captions[index],
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
+                          if (locations.isNotEmpty)
+                            Row(
+                              children: [
+                                SizedBox(
+                                  width: 70,
+                                ),
+                                Text(
+                                  locations[index],
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+
+                      SizedBox(height: 10),
+                      Image.network(
+                        imageUrls[index],
+                        height: 600,
+                        width: 600,
+                      ),
+                      SizedBox(height: 10),
+                      Row(
+                        children: [
+                          SizedBox(width: 10),
+                          Text(
+                            usernames[index],
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(
-                      height: 10,
-                    ),
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: 10,
-                        ),
-                        IconButton(
-                          onPressed: () async {
-                            List<String> currentLikedUsers = likedUsers[index];
-                            final bool userLiked = currentLikedUsers.contains(currentUserUid);
+                          SizedBox(width: 10),
+                          Text(
+                            captions[index],
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(
+                        height: 10,
+                      ),
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 10,
+                          ),
+                          IconButton(
+                            onPressed: () async {
+                              List<String> currentLikedUsers =
+                              likedUsers[index];
+                              final bool userLiked =
+                              currentLikedUsers.contains(currentUserUid);
 
-                            if (userLiked) {
-                              currentLikedUsers.remove(currentUserUid);
-                            } else {
-                              currentLikedUsers.add(currentUserUid);
-                            }
+                              if (userLiked) {
+                                currentLikedUsers.remove(currentUserUid);
+                              } else {
+                                currentLikedUsers.add(currentUserUid);
+                              }
 
-                            await updateFirestoreLikedUsers(index, currentLikedUsers);
+                              await updateFirestoreLikedUsers(
+                                  index, currentLikedUsers);
+                            },
+                            icon: likedUsers[index].contains(currentUserUid)
+                                ? Icon(
+                              Icons.favorite,
+                              color: Colors.red,
+                              size: 30,
+                            )
+                                : Icon(
+                              Icons.favorite_border,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                          ),
+
+                          if (likedUsers[index]?.length == 1)
+                            Text(
+                              '${likedUsers[index]?.length ?? 0} Like',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          if (likedUsers[index].length > 1)
+                            Text(
+                              '${likedUsers[index]?.length ?? 0} Likes',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          SizedBox(
+                            width: 10,
+                          ),
+                          IconButton(onPressed: (){
+                            Navigator.push(context, MaterialPageRoute(builder: (context) => Comment_page(startIndex: index)));
+                            print('Index is $index');
                           },
-                          icon: likedUsers[index].contains(currentUserUid) ? Icon(
-                            Icons.favorite,
-                            color: Colors.red,
-                            size: 30,
-                          ) : Icon(
-                            Icons.favorite_border,
-                            color: Colors.white,
-                            size: 30,
-                          ),
-                        ),
-                        // Display the like count for each photo
-
-                        if(likedUsers[index]?.length==1)
-                          Text(
-                            '${likedUsers[index]?.length ?? 0} Like',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                          ),
-                        if(likedUsers[index].length>1)
-                          Text(
-                            '${likedUsers[index]?.length ?? 0} Likes',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                          ),
-                      ],
-                    ),
-                    SizedBox(height: 30),
-                  ],
-                );
-              }),
+                              icon: Icon(Icons.comment_outlined,color: Colors.white))
+                        ],
+                      ),
+                      SizedBox(height: 30),
+                    ],
+                  );
+                },
+              ),
             ),
             SizedBox(height: 30),
           ],
@@ -436,10 +612,24 @@ class _HomepageState extends State<Homepage> {
       ),
     );
   }
+
+  void takeScreenshot(BuildContext context) async {
+    final imageFile = await screenshotController.capture();
+    print('Screenshot taken');
+
+    // Convert Uint8List to File
+    final tempDir = await getTemporaryDirectory();
+    final tempPath = tempDir.path;
+    final File file = await File('$tempPath/screenshot.png').writeAsBytes(imageFile!);
+
+    // Navigate to the next page with the captured screenshot
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BugReportPage(imageFile: file),
+      ),
+    );
+  }
+
 }
 
-void main() {
-  runApp(MaterialApp(
-    home: Homepage(),
-  ));
-}

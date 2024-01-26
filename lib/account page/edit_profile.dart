@@ -17,6 +17,16 @@ class Editprofile extends StatefulWidget {
 class _EditprofileState extends State<Editprofile> {
   String? _imageUrl;
   bool _uploading = false;
+  bool isverified=false;
+  Future<void> fetchverification() async{
+    final user=_auth.currentUser;
+    final docsnap=await _firestore.collection('Verifications').doc(user!.uid).get();
+    if(docsnap.exists){
+      setState(() {
+        isverified=docsnap.data()?['isverified'];
+      });
+    }
+  }
   FirebaseAuth _auth=FirebaseAuth.instance;
   FirebaseFirestore _firestore=FirebaseFirestore.instance;
   final ImagePicker _imagePicker = ImagePicker();
@@ -133,6 +143,7 @@ class _EditprofileState extends State<Editprofile> {
     fetchusername();
     fetchbio();
     fetchlink();
+    fetchverification();
   }
   @override
   Widget build(BuildContext context) {
@@ -445,6 +456,20 @@ class _EditprofileState extends State<Editprofile> {
                 ),
               ),
             ),
+            SizedBox(
+              height: 30,
+            ),
+            if(!isverified)
+              TextButton(onPressed: ()async{
+                final user=_auth.currentUser;
+                await _firestore.collection('Verifications').doc(user!.uid).set(
+                    {
+                      'isverified':false,
+                    }
+                );
+              }, child: Text('Get Verified',style: TextStyle(color:Colors.white,
+                fontWeight: FontWeight.bold,
+              ),)),
           ],
         ),
       ),
