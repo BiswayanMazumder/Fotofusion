@@ -53,6 +53,8 @@ dependencies:
   video_player: ^2.8.2
   chewie: ^1.4.0
   video_thumbnail: ^0.5.3
+  easy_image_viewer: ^1.4.0
+  insta_image_viewer: ^1.0.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
