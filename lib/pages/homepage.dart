@@ -3,6 +3,7 @@ import 'package:fotofusion/Chatbots/chatbot.dart';
 import 'package:fotofusion/account%20page/comment_page.dart';
 import 'package:fotofusion/pages/homepage.dart';
 import 'package:fotofusion/pages/report_page.dart';
+import 'package:insta_image_viewer/insta_image_viewer.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -69,7 +70,53 @@ class _HomepageState extends State<Homepage> {
     }
     print('isverified $isverified');
   }
-
+  String? storyurl;
+  bool storyuploaded=false;
+  Future<void> _loadstory()async{
+    final user=_auth.currentUser;
+    try{
+      final docsnap=await _firestore.collection('Story').doc(user!.uid).get();
+      if(docsnap.exists){
+        storyurl=docsnap.data()?['story'];
+        storyuploaded=true;
+      }
+    }catch(e){
+      print("Error getting story: $e");
+    }
+  }
+  String? _imageUrl;
+  Future<void> _loadProfilePicture() async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      try {
+        final docSnapshot =
+        await _firestore.collection('profile_pictures').doc(user.uid).get();
+        if (docSnapshot.exists) {
+          setState(() {
+            _imageUrl = docSnapshot.data()?['url_user1'];
+          });
+        }
+      } catch (e) {
+        print('Error loading profile picture: $e');
+      }
+    }
+  }
+  Future<void> writestoryseen() async{
+    final user=_auth.currentUser;
+    await _firestore.collection('Story').doc(user!.uid).update(
+        {
+          'story seen':true
+        });
+  }
+  bool storyseen=false;
+  Future<void> fetchstoryseen()async{
+    final user=_auth.currentUser;
+    final docsnap=await _firestore.collection('Story').doc(user!.uid).get();
+    if(docsnap.exists){
+      storyseen=docsnap.data()?['story seen'];
+    }
+    print('Story seen $storyseen');
+  }
   final screenshotController = ScreenshotController();
 
   @override
@@ -79,6 +126,10 @@ class _HomepageState extends State<Homepage> {
     initializeLikedUsersList();
     updateImagesPeriodically();
     fetchverifications();
+    fetchstoryseen();
+    _loadstory();
+    fetchprofilephoto();
+    fetchusername();
     final vibrate = AllVibrate();
     showVerification();
     ShakeDetector detector = ShakeDetector.autoStart(
@@ -206,7 +257,21 @@ class _HomepageState extends State<Homepage> {
       likedUsers = List.generate(numberOfPosts, (index) => []);
     });
   }
-
+  String? username;
+  Future<void> fetchusername() async {
+    final user = _auth.currentUser;
+    try {
+      final docsnap =
+      await _firestore.collection('User Details').doc(user!.uid).get();
+      if (docsnap.exists) {
+        setState(() {
+          username = docsnap.data()?['user name'];
+        });
+      }
+    } catch (e) {
+      print(e);
+    }
+  }
   Future<void> updateImagesPeriodically() async {
     while (true) {
       await Future.delayed(Duration(seconds: 2));
@@ -217,9 +282,11 @@ class _HomepageState extends State<Homepage> {
       await fetchInitialLikeStatus();
       await fetchlocations();
       await fetchverifications();
+      await fetchstoryseen();
+      await fetchusername();
     }
   }
-
+  bool _uploading = false;
   Future<void> fetchInitialLikeStatus() async {
     try {
       final String currentUserUid = _auth.currentUser?.uid ?? '';
@@ -447,6 +514,108 @@ class _HomepageState extends State<Homepage> {
         child: Column(
           children: [
             SizedBox(height: 20),
+            Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                ),
+                InkWell(
+                  onTap: () async {
+                    writestoryseen();
+                    if (storyurl != null) {
+                      showDialog(
+                        context: context,
+                        builder: (context) {
+                          return AlertDialog(
+                            backgroundColor: Colors.black,
+                            actions: [
+                              InstaImageViewer(
+                                child: Image(
+                                  image: storyurl != null
+                                      ? Image.network(storyurl!).image
+                                      : AssetImage('assets/placeholder_image.png'), // Replace with your placeholder image
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    }
+                  },
+                  child: _uploading
+                      ? CircularProgressIndicator(
+                    color: Colors.red,
+                  )
+                      : _imageUrl == null
+                      ? Column(
+                    children: [
+                      ClipOval(
+                        child: Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 3,
+                            ),
+                          ),
+                          child: Image.network(
+                            'https://firebasestorage.googleapis.com/v0/'
+                                'b/fotofusion-53943.appspot.com/o/profile%2'
+                                '0pics.jpg?alt=media&token=17bc6fff-cfe9-4f2d-9'
+                                'a8c-18d2a5636671',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 5,
+                      ),
+                      Text(
+                        username ?? '',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w300,
+                          fontSize: 12,
+                        ),
+                      )
+                    ],
+                  )
+                      : Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: (storyuploaded && !storyseen)
+                            ? Colors.green
+                            : (storyuploaded && storyseen)
+                            ? Colors.grey
+                            : Colors.red,
+                        width: 3,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        ClipOval(
+                          child: _imageUrl != null
+                              ? Image.network(
+                            _imageUrl!,
+                            fit: BoxFit.cover,
+                          )
+                              : CircularProgressIndicator(color: Colors.white,) // Handle the case when _imageUrl is null
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              ],
+            ),
+            SizedBox(
+              height: 20,
+            ),
             Column(
               children: List.generate(
                 min(numberOfPosts, likedUsers.length),

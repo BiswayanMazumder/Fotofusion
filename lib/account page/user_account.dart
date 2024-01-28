@@ -1,3 +1,4 @@
+import 'package:insta_image_viewer/insta_image_viewer.dart';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -5,11 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fotofusion/Reels%20page/reel_page_account.dart';
 import 'package:fotofusion/account%20page/edit_profile.dart';
+import 'package:fotofusion/account%20page/followers.dart';
 import 'package:fotofusion/main.dart';
 import 'package:fotofusion/pages/homepage.dart';
 import 'package:fotofusion/posts/detailed_post.dart';
 import 'package:fotofusion/posts/post_page.dart';
 import 'package:fotofusion/posts/reels.dart';
+import 'package:fotofusion/posts/story.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/cupertino.dart';
@@ -30,7 +33,21 @@ class _Account_pageState extends State<Account_page> {
   final ImagePicker _imagePicker = ImagePicker();
   File? _image;
   bool isverified=false;
+  String? storyurl;
+  bool storyuploaded=false;
   final FirebaseStorage _storage = FirebaseStorage.instance;
+  Future<void> _loadstory()async{
+    final user=_auth.currentUser;
+    try{
+      final docsnap=await _firestore.collection('Story').doc(user!.uid).get();
+      if(docsnap.exists){
+        storyurl=docsnap.data()?['story'];
+        storyuploaded=true;
+      }
+    }catch(e){
+      print("Error getting story: $e");
+    }
+  }
   Future<void> _loadProfilePicture() async {
     final user = _auth.currentUser;
     if (user != null) {
@@ -182,6 +199,8 @@ class _Account_pageState extends State<Account_page> {
       fetchfollowerscount();
       fetchfollowing();
       fetchverification();
+      _loadstory();
+      fetchstoryseen();
     }
   }
 
@@ -230,6 +249,22 @@ class _Account_pageState extends State<Account_page> {
       print('Error fetching images: $e');
     }
   }
+  Future<void> writestoryseen() async{
+    final user=_auth.currentUser;
+    await _firestore.collection('Story').doc(user!.uid).update(
+        {
+          'story seen':true
+        });
+  }
+  bool storyseen=false;
+  Future<void> fetchstoryseen()async{
+    final user=_auth.currentUser;
+    final docsnap=await _firestore.collection('Story').doc(user!.uid).get();
+    if(docsnap.exists){
+      storyseen=docsnap.data()?['story seen'];
+    }
+    print('Story seen $storyseen');
+  }
   @override
   void initState() {
     super.initState();
@@ -243,6 +278,8 @@ class _Account_pageState extends State<Account_page> {
     fetchfollowing();
     fetchverification();
     fetchreels();
+    _loadstory();
+    fetchstoryseen();
   }
 
   Future<void> _launchURl() async {
@@ -370,7 +407,16 @@ class _Account_pageState extends State<Account_page> {
                             fontWeight: FontWeight.bold,
                             fontSize: 15
                         ),)),
-                      )
+                      ),
+                      Center(
+                        child: TextButton(onPressed: (){
+                          Navigator.pop(context);
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => Story(),));
+                        }, child: Text('Upload Story',style: TextStyle(color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15
+                        ),)),
+                      ),
                     ],
                   );
                 },);
@@ -390,49 +436,82 @@ class _Account_pageState extends State<Account_page> {
                 SizedBox(
                   width: 20,
                 ),
-                _uploading
-                    ? CircularProgressIndicator(
-                  color: Colors.red,
-                ) // Show the progress indicator while uploading
-                    : _imageUrl == null
-                    ? ClipOval(
-                  child: Container(
-                    width: 110, // Instagram-like dimensions
-                    height: 110,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 3, // Border width
+        InkWell(
+          onTap: () async {
+            writestoryseen();
+            if (storyurl != null) {
+              showDialog(
+                context: context,
+                builder: (context) {
+                  return AlertDialog(
+                    backgroundColor: Colors.black,
+                    actions: [
+                      InstaImageViewer(
+                        child: Image(
+                          image: Image.network(storyurl!).image,
+                        ),
                       ),
-                    ),
-                    child: Image.network(
-                      'https://firebasestorage.googleapis.com/v0/'
-                          'b/fotofusion-53943.appspot.com/o/profile%2'
-                          '0pics.jpg?alt=media&token=17bc6fff-cfe9-4f2d-9'
-                          'a8c-18d2a5636671',
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                )
-                    : ClipOval(
-                  child: Container(
-                    width: 110, // Instagram-like dimensions
-                    height: 110,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 3, // Border width
-                      ),
-                    ),
-                    child: Image.network(
-                      _imageUrl!,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
+                    ],
+                  );
+                },
+              );
+            }
+
+
+          },
+          child: _uploading
+              ? CircularProgressIndicator(
+            color: Colors.red,
+          )
+              : _imageUrl == null
+              ? ClipOval(
+            child: Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white,
+                  width: 3,
                 ),
-                SizedBox(
+              ),
+              child: Image.network(
+                'https://firebasestorage.googleapis.com/v0/'
+                    'b/fotofusion-53943.appspot.com/o/profile%2'
+                    '0pics.jpg?alt=media&token=17bc6fff-cfe9-4f2d-9'
+                    'a8c-18d2a5636671',
+                fit: BoxFit.cover,
+              ),
+            ),
+          )
+              : Container(
+            width: 110,
+            height: 110,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: (storyuploaded && !storyseen)
+                    ? Colors.green
+                    : (storyuploaded && storyseen)
+                    ? Colors.yellow
+                    : Colors.red,
+                width: (storyuploaded && !storyseen)
+                    ? 3
+                    : (storyuploaded && storyseen)
+                    ? 0.5
+                    : 3,
+              ),
+            ),
+            child: ClipOval(
+              child: Image.network(
+                _imageUrl!,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+
+        ),
+        SizedBox(
                   width: 30,
                 ),
                 Align(
@@ -463,9 +542,13 @@ class _Account_pageState extends State<Account_page> {
                 Column(
                   children: [
                     SizedBox(
-                      height: 2,
+                      height: 1.5,
                     ),
-                    Text('$followerscount',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
+                    InkWell(
+                        onTap: (){
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => Followers(),));
+                        },
+                        child: Text('$followerscount',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),)),
                     if(followerscount<=1)
                       Text('Follower',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
                     if(followerscount>1)

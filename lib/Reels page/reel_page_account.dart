@@ -59,9 +59,13 @@ class _Reelpage_accountState extends State<Reelpage_account> {
       });
     }
   }
-
+  late ChewieController _chewieController;
   int followerscount = 0;
-
+  @override
+  void dispose() {
+    _chewieController.dispose();
+    super.dispose();
+  }
   Future<void> fetchfollowerscount() async {
     final user = _auth.currentUser;
     final docsnap = await _firestore.collection('Followers Count').doc(
@@ -620,13 +624,15 @@ class _Reelpage_accountState extends State<Reelpage_account> {
                   VideoPlayerController videoPlayerController =
                   VideoPlayerController.networkUrl(Uri.parse(reelsurls[index]));
 
-                  ChewieController chewieController = ChewieController(
+                  _chewieController = ChewieController(
                     videoPlayerController: videoPlayerController,
                     aspectRatio: 1,
                     autoInitialize: true, // Set to true for auto-initializing
                     autoPlay: true,
                     looping: true, // Set to true for looping
                     allowedScreenSleep: false,
+                    draggableProgressBar: true,
+                    allowFullScreen: true,
                     showControls: false, // Set to false to hide controls
                     placeholder: Center(
                       child: CircularProgressIndicator(),
@@ -649,7 +655,7 @@ class _Reelpage_accountState extends State<Reelpage_account> {
                       width: 120,
                       height: 150,
                       child: Chewie(
-                        controller: chewieController,
+                        controller: _chewieController,
                       ),
                     ),
                   );

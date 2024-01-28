@@ -6,10 +6,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:fotofusion/Searches/searched_followers.dart';
 import 'package:fotofusion/Searches/searched_user_reel.dart';
 import 'package:fotofusion/account%20page/edit_profile.dart';
 import 'package:fotofusion/pages/search_screen.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:insta_image_viewer/insta_image_viewer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class Searchresult extends StatefulWidget {
@@ -151,7 +153,6 @@ class _SearchresultState extends State<Searchresult> {
         setState(() {
           username=docsnap.data()?['user name'];
           name=docsnap.data()?['user names'];
-
         });
         print('user id ${widget.userid}');
       }
@@ -186,6 +187,11 @@ class _SearchresultState extends State<Searchresult> {
       print('Error fetching images: $e');
     }
   }
+  Future<void> _fetchUserData() async {
+    await _addSeenUser(); // Call the function to add seen user
+    await _fetchUserDetails(); // Call the function to fetch usernames and verification statuses
+    setState(() {});
+  }
   @override
   void initState() {
     super.initState();
@@ -203,11 +209,40 @@ class _SearchresultState extends State<Searchresult> {
     fetchfollowerscount();
     fetchsearchedfollowercount();
     fetchreels();
+    _loadstory();
+    fetchCloseFriends();
+    _fetchUserData();
+  }
+  List<String> usernames = [];
+  List<bool> verificationStatusList = [];
+  Future<void> _addSeenUser() async {
+    final user = _auth.currentUser;
+    await _firestore.collection('Story Seen').doc(widget.userid).set({
+      'Seen': FieldValue.arrayUnion([
+        {
+          'user id': user!.uid,
+        }
+      ])
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> _fetchUserDetails() async {
+    try {
+      final docsnap = await _firestore.collection('User Details').doc(widget.userid).get();
+      if (docsnap.exists) {
+        setState(() {
+          usernames.add(docsnap.data()?['user name'] ?? '');
+          verificationStatusList.add(docsnap.data()?['isverified'] ?? false);
+        });
+        print('user id ${widget.userid}');
+      }
+    } catch (e) {
+      print(e);
+    }
   }
   Future<void> unfollow() async {
     final user = _auth.currentUser;
     await fetchfollowerscount();
-
     // Only decrement the count if it is greater than 0
       setState(() {
         followerscount -= 1;
@@ -234,7 +269,8 @@ class _SearchresultState extends State<Searchresult> {
           }
         ]),
       }, SetOptions(merge: true));
-
+      await removeCloseFriends();
+      fetchCloseFriends();
     print('user id: ${user!.uid}');
     print('widget id ${widget.userid}');
   }
@@ -274,7 +310,23 @@ class _SearchresultState extends State<Searchresult> {
     }
   }
   int followers=0;
-
+  Future<void> _showStoryAutomatically(BuildContext context) async {
+    await Future.delayed(Duration(seconds: 10), () {
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            backgroundColor: Colors.black,
+            content: InstaImageViewer(
+              child: Image(
+                image: Image.network(storyurl!).image,
+              ),
+            ),
+          );
+        },
+      );
+    });
+  }
   Future<void> _loadProfilePicture() async {
     final user = _auth.currentUser;
     if (user != null) {
@@ -335,6 +387,72 @@ class _SearchresultState extends State<Searchresult> {
       print('Error fetching caption: $e');
     }
   }
+  Future<void> removeCloseFriends() async {
+    final user = _auth.currentUser;
+
+    try {
+      await _firestore.collection('Close Friends').doc(user!.uid).set({
+        'Close Friends': {
+          'close friends userid': FieldValue.arrayRemove([widget.userid]),
+        }
+      }, SetOptions(merge: true));
+    } catch (e) {
+      print('Error adding close friend $e');
+    }
+  }
+  Future<void> addCloseFriends() async {
+    final user = _auth.currentUser;
+
+    try {
+      await _firestore.collection('Close Friends').doc(user!.uid).set({
+        'Close Friends': {
+          'close friends userid': FieldValue.arrayUnion([widget.userid]),
+        }
+      }, SetOptions(merge: true));
+    } catch (e) {
+      print('Error adding close friend $e');
+    }
+  }
+
+  bool isclosefriend=false;
+  List<String> closeFriends = [];
+
+  Future<void> fetchCloseFriends() async {
+    final user = _auth.currentUser;
+
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('Close Friends')
+          .doc(user!.uid)
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> friendsList = (data['Close Friends']['close friends userid'] as List?) ?? [];
+
+          setState(() {
+            closeFriends = friendsList.map((friend) => friend.toString()).toList();
+          });
+        }
+      }
+      if(closeFriends.contains(widget.userid)){
+        setState(() {
+          isclosefriend=true;
+        });
+      }
+      else{
+        setState(() {
+          isclosefriend=false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching close friends: $e');
+    }
+  }
+
+
+
   Future<void> fetchImages() async {
     final user = _auth.currentUser;
 
@@ -372,6 +490,30 @@ class _SearchresultState extends State<Searchresult> {
       print('bio error:$e');
     }
   }
+  String? storyurl;
+  bool storyuploaded=false;
+  Future<void> _loadstory()async{
+    final user=_auth.currentUser;
+    try{
+      final docsnap=await _firestore.collection('Story').doc(widget.userid).get();
+      if(docsnap.exists){
+        storyurl=docsnap.data()?['story'];
+        storyuploaded=true;
+      }
+    }catch(e){
+      print("Error getting story: $e");
+    }
+  }
+  Future<void> _addseenuser() async{
+    final user=_auth.currentUser;
+    await _firestore.collection('Story Seen').doc(widget.userid).set({
+      'Seen':FieldValue.arrayUnion([
+        {
+          'user id':user!.uid
+        }
+      ])
+    },SetOptions(merge: true));
+  }
   @override
   Widget build(BuildContext context) {
     String userId = widget.userid;
@@ -386,6 +528,7 @@ class _SearchresultState extends State<Searchresult> {
         backgroundColor: Colors.black,
         title: Row(
           children: [
+
             Text(username,style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,fontSize: 20),),
             SizedBox(
               width: 5,
@@ -409,10 +552,87 @@ class _SearchresultState extends State<Searchresult> {
                 SizedBox(
                   width: 20,
                 ),
-                _uploading
+                isfollowed & isclosefriend & storyuploaded?InkWell(
+                  onTap: ()async{
+                    if (storyurl != null) {
+                      _addseenuser();
+                      showDialog(
+                        context: context,
+                        builder: (context) {
+                          return AlertDialog(
+                            backgroundColor: Colors.black,
+                            actions: [
+                              Row(
+                                children: [
+                                  Text(username,style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,fontSize: 15),),
+                                  SizedBox(
+                                    width: 5,
+                                  ),
+                                  if(isverified)
+                                    Image.network('https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
+                                      height: 25,
+                                      width: 25,
+                                    )
+                                ],
+                              ),
+                              InstaImageViewer(
+                                child: Image(
+                                  image: Image.network(storyurl!).image,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    }
+                  },
+                  child: _uploading
+                      ? CircularProgressIndicator(
+                    color: Colors.red,
+                  ) // Show the progress indicator while uploading
+                      : _imageUrl == null
+                      ? ClipOval(
+                    child: Container(
+                      width: 100, // Instagram-like dimensions
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 3, // Border width
+                        ),
+                      ),
+                      child: Image.network(
+                        'https://firebasestorage.googleapis.com/v0/'
+                            'b/fotofusion-53943.appspot.com/o/profile%2'
+                            '0pics.jpg?alt=media&token=17bc6fff-cfe9-4f2d-9'
+                            'a8c-18d2a5636671',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  )
+                      : ClipOval(
+                    child: Container(
+                      width: 110, // Instagram-like dimensions
+                      height: 110,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 3, // Border width
+                        ),
+                      ),
+                      child: Image.network(
+                        _imageUrl!,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),):_uploading
                     ? CircularProgressIndicator(
                   color: Colors.red,
-                ) // Show the progress indicator while uploading
+
+                )
+                // Show the progress indicator while uploading
                     : _imageUrl == null
                     ? ClipOval(
                   child: Container(
@@ -421,7 +641,7 @@ class _SearchresultState extends State<Searchresult> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.white,
+                        color: Colors.green,
                         width: 3, // Border width
                       ),
                     ),
@@ -434,17 +654,17 @@ class _SearchresultState extends State<Searchresult> {
                     ),
                   ),
                 )
-                    : ClipOval(
-                  child: Container(
-                    width: 110, // Instagram-like dimensions
-                    height: 110,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 3, // Border width
-                      ),
+                    : Container(
+                  width: 110,
+                  height: 110,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: storyuploaded ?Colors.purple:Colors.red,
+                      width: 3,
                     ),
+                  ),
+                  child: ClipOval(
                     child: Image.network(
                       _imageUrl!,
                       fit: BoxFit.cover,
@@ -485,7 +705,11 @@ class _SearchresultState extends State<Searchresult> {
                       height: 1,
                     ),
 
-                    Text('$followerscount',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
+                    InkWell(
+                        onTap: (){
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => Searcheduserfollowers(userid: widget.userid),));
+                        },
+                        child: Text('$followerscount',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),)),
                     if(followerscount<=1)
                       Text('Follower',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
                     if(followerscount>1)
@@ -565,20 +789,72 @@ class _SearchresultState extends State<Searchresult> {
                   width: 20,
                 ),
                 if(!sameuser)
-                  Center(
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 10),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        ElevatedButton(onPressed: ()async{
-                          isfollowed?unfollow():updatefollower();
-                          fetchFollowers();
+                        ElevatedButton(
+                          onPressed: () async {
+                            isfollowed ? unfollow() : updatefollower();
+                            fetchFollowers();
+                          },
+                          style: ButtonStyle(
+                            backgroundColor: isfollowed
+                                ? MaterialStatePropertyAll(Colors.grey[800])
+                                : MaterialStatePropertyAll(Colors.blue),
+                          ),
+                          child: isfollowed
+                              ? Text(
+                            'Following',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                              : Text(
+                            'Follow',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 10,
+                        ),
+                        isfollowed?isclosefriend?ElevatedButton(onPressed: (){
+                          removeCloseFriends();
+                          fetchCloseFriends();
+                        }, 
+                            style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.grey[800])),
+                            child:Row(
+                              children: [
+                                Text(
+                                  'Remove from close friends',
+                                  style: TextStyle(
+                                color: Colors.red[500],
+                                fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                              ],
+                            ) ):ElevatedButton(onPressed: (){
+                          addCloseFriends();
+                          fetchCloseFriends();
                         },
-                        style: ButtonStyle(
-                          backgroundColor: isfollowed?MaterialStatePropertyAll(Colors.grey[800]):MaterialStatePropertyAll(Colors.blue)
-                        ),    
-                            child: isfollowed?Text('Following',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),):
-                            Text('Follow',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),)
-                        )
+                          style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.grey[800])),
+                          child: Row(
+                            children: [
+                              Icon(Icons.star,color: Colors.green,),
+                              Text(
+                              ' Add to close friends',
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                              ),
+                                                      ),
+                            ],
+                          ),):Container()
                       ],
                     ),
                   ),
@@ -623,66 +899,68 @@ class _SearchresultState extends State<Searchresult> {
                 SizedBox(
                   width: 80,
                 ),
-                if(reelsurls.length>0)
-                  IconButton(onPressed: (){
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => Searchuserreels(userid: widget.userid)));
-                  }, icon: Icon(Icons.movie,color: Colors.grey,)),
+                if(isfollowed)
+                  if(reelsurls.length>0)
+                    IconButton(onPressed: (){
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => Searchuserreels(userid: widget.userid)));
+                    }, icon: Icon(Icons.movie,color: Colors.grey,)),
               ],
             ),
-            for (int i = 0; i < imageUrls.length; i += 2)
-              Column(
-                children: [
-                  SizedBox(height: 20), // Add a gap of 20 pixels between new rows
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      SizedBox(width: 20),
-                      if (i < imageUrls.length)
-                        ElevatedButton(
-                          onPressed: () {
-                            // Navigator.push(
-                            //   context,
-                            //   MaterialPageRoute(
-                            //     builder: (context) => detailpostpage(startIndex: i),
-                            //   ),
-                            // );
-                          },
-                          style: ButtonStyle(
-                            backgroundColor: MaterialStateProperty.all(Colors.black),
+            if(isfollowed)
+              for (int i = 0; i < imageUrls.length; i += 2)
+                Column(
+                  children: [
+                    SizedBox(height: 20), // Add a gap of 20 pixels between new rows
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        SizedBox(width: 20),
+                        if (i < imageUrls.length)
+                          ElevatedButton(
+                            onPressed: () {
+                              // Navigator.push(
+                              //   context,
+                              //   MaterialPageRoute(
+                              //     builder: (context) => detailpostpage(startIndex: i),
+                              //   ),
+                              // );
+                            },
+                            style: ButtonStyle(
+                              backgroundColor: MaterialStateProperty.all(Colors.black),
+                            ),
+                            child: Image.network(
+                              imageUrls[i],
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                            ),
                           ),
-                          child: Image.network(
-                            imageUrls[i],
-                            width: 120,
-                            height: 120,
-                            fit: BoxFit.cover,
+                        SizedBox(width: 10),
+                        if (i + 1 < imageUrls.length)
+                          ElevatedButton(
+                            onPressed: () {
+                              // Navigator.push(
+                              //   context,
+                              //   MaterialPageRoute(
+                              //     builder: (context) => detailpostpage(startIndex: i + 1),
+                              //   ),
+                              // );
+                            },
+                            style: ButtonStyle(
+                              backgroundColor: MaterialStateProperty.all(Colors.black),
+                            ),
+                            child: Image.network(
+                              imageUrls[i + 1],
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                            ),
                           ),
-                        ),
-                      SizedBox(width: 10),
-                      if (i + 1 < imageUrls.length)
-                        ElevatedButton(
-                          onPressed: () {
-                            // Navigator.push(
-                            //   context,
-                            //   MaterialPageRoute(
-                            //     builder: (context) => detailpostpage(startIndex: i + 1),
-                            //   ),
-                            // );
-                          },
-                          style: ButtonStyle(
-                            backgroundColor: MaterialStateProperty.all(Colors.black),
-                          ),
-                          child: Image.network(
-                            imageUrls[i + 1],
-                            width: 120,
-                            height: 120,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      SizedBox(width: 10), // Add a gap of 10 pixels at the end of each row
-                    ],
-                  ),
-                ],
-              ),
+                        SizedBox(width: 10), // Add a gap of 10 pixels at the end of each row
+                      ],
+                    ),
+                  ],
+                ),
 // Add a gap of 20 pixels between new rows
 
             // Add a gap of 20 pixels between new rows
