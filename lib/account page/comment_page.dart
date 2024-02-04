@@ -236,7 +236,7 @@ class _Comment_pageState extends State<Comment_page> {
                               )
                           ],
                         ),
-                        SizedBox(width: 10),
+                        SizedBox(width: 2),
                         Row(
                           children: [
                             SizedBox(width: 60),

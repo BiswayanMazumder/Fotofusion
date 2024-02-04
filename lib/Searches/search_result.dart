@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,12 +8,15 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:fotofusion/Searches/detailed_post_page_searched.dart';
 import 'package:fotofusion/Searches/searched_followers.dart';
 import 'package:fotofusion/Searches/searched_user_reel.dart';
+import 'package:fotofusion/Searches/subscriber_post_searched_user.dart';
 import 'package:fotofusion/account%20page/edit_profile.dart';
 import 'package:fotofusion/pages/search_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:insta_image_viewer/insta_image_viewer.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class Searchresult extends StatefulWidget {
@@ -65,10 +70,12 @@ class _SearchresultState extends State<Searchresult> {
           isfollowed = followers.any((follower) => follower['followerUid'] == user?.uid);
         }
       }
+      print('Is followed $isfollowed');
     } catch (e) {
       print('Error fetching followers: $e');
     }
   }
+
   int following=0;
   Future<void> updatefollower() async {
     final user = _auth.currentUser;
@@ -93,6 +100,63 @@ class _SearchresultState extends State<Searchresult> {
         }
       ]),
     }, SetOptions(merge: true));
+    await _firestore.collection('Following').doc(user?.uid).set({
+      'Followers': FieldValue.arrayUnion([
+        {
+          'followerUid': widget.userid,
+        }
+      ]),
+    }, SetOptions(merge: true));
+  }
+  List<String> followings=[];
+  Future<void> fetchfollowings() async {
+    final user = _auth.currentUser;
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('Following')
+          .doc(widget.userid)
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['Followers'] as List?) ?? [];
+          setState(() {
+            followings =
+                posts.map((post) => post['followerUid'].toString()).toList();
+          });
+        }
+      }
+      print('following $followings');
+    } catch (e) {
+      print('Error fetching followers fetchfollowers: $e');
+    }
+
+  }
+  List<String> followerss=[];
+  Future<void> fetchfollowers() async {
+    final user = _auth.currentUser;
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('Followers')
+          .doc(widget.userid)
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['Followers'] as List?) ?? [];
+          setState(() {
+            followerss =
+                posts.map((post) => post['followerUid'].toString()).toList();
+          });
+        }
+      }
+      print('followers $followerss');
+    } catch (e) {
+      print('Error fetching followers fetchfollowers: $e');
+    }
+
   }
   int followerscount=0;
   int searchedfollower=0;
@@ -192,14 +256,119 @@ class _SearchresultState extends State<Searchresult> {
     await _fetchUserDetails(); // Call the function to fetch usernames and verification statuses
     setState(() {});
   }
+  int viewers=0;
+  Future<void> fetchaccountviewers()async{
+    final docsnap=await _firestore.collection('Account Viewers').doc(widget.userid).get();
+    if(docsnap.exists){
+      setState(() {
+        viewers=docsnap.data()?['Viewers'];
+      });
+    }
+  }
+  int price=500;
+  Future<void> fetchsubsprice()async{
+    final user=_auth.currentUser;
+    final docsnap=await _firestore.collection('Subscription Price').doc(widget.userid).get();
+    if(docsnap.exists){
+      setState(() {
+        price=docsnap.data()?['Price'];
+      });
+    }
+  }
+  Future<void> writeviewers() async{
+    await fetchaccountviewers();
+    setState(() {
+      viewers+=1;
+    });
+    await _firestore.collection('Account Viewers').doc(widget.userid).set({
+      'Viewers':viewers,
+    });
+  }
+  int interaction=0;
+  Future<void> fetchinteraction() async{
+    final docsnap=await _firestore.collection('Account Interaction').doc(widget.userid).get();
+    if(docsnap.exists){
+      interaction=docsnap.data()?['Interaction'];
+    }
+  }
+  Future<void>updateaccountinteraction() async{
+    await fetchinteraction();
+    setState(() {
+      interaction+=1;
+    });
+    await _firestore.collection('Account Interaction').doc(widget.userid).set(
+        {
+          'Interaction':interaction
+        });
+  }
+  String countryName = "Loading...";
+
+  Future<void> getCountryName() async {
+    try {
+      final response = await http.get(Uri.parse('https://ipinfo.io/json'));
+      if (response.statusCode == 200) {
+        Map<String, dynamic> data = json.decode(response.body);
+        String countryCode = data['country'];
+
+        // Fetch full country name using REST Countries API
+        final countryResponse = await http.get(
+          Uri.parse('https://restcountries.com/v3/alpha/$countryCode'),
+        );
+        if (countryResponse.statusCode == 200) {
+          List<dynamic> countryData = json.decode(countryResponse.body);
+          setState(() {
+            countryName = countryData[0]['name']['common'];
+          });
+        } else {
+          setState(() {
+            countryName = 'Error';
+          });
+          print('Error fetching country name');
+        }
+      } else {
+        setState(() {
+          countryName = 'Error';
+        });
+        print('Error fetching IP information');
+      }
+    } catch (e) {
+      setState(() {
+        countryName = 'Error';
+      });
+      print('Exception caught: $e');
+    }
+    print('Country name: $countryName');
+  }
+  Future<void> writecountryname() async{
+    await getCountryName();
+    await _firestore.collection('Country Name').doc(widget.userid).set({
+      'country':FieldValue.arrayUnion([
+        countryName
+      ])
+    }, SetOptions(merge: true));
+  }
   @override
   void initState() {
     super.initState();
+    fetchinteraction();
+    fetchfollowers();
+    fetchfollowings();
+    getCountryName();
+    fetchsubsurls();
+    fetchsubsprice();
+    writecountryname();
     fetchusername();
+    fetchsubsstate();
+    final user=_auth.currentUser;
+    if(widget.userid!=user!.uid){
+      writeviewers();
+    }
+    fetchSubscribers();
     updateImagesPeriodically();
     _loadProfilePicture();
     fetchlocations();
     fetchverification();
+    fetchaccountviewers();
     fetchbio();
     fetchlink();
     fetchuserid();
@@ -243,6 +412,13 @@ class _SearchresultState extends State<Searchresult> {
   Future<void> unfollow() async {
     final user = _auth.currentUser;
     await fetchfollowerscount();
+    await _firestore.collection('Following').doc(user!.uid).set({
+      'Followers': FieldValue.arrayRemove([
+        {
+          'followerUid': widget.userid,
+        }
+      ]),
+    }, SetOptions(merge: true));
     // Only decrement the count if it is greater than 0
       setState(() {
         followerscount -= 1;
@@ -269,6 +445,7 @@ class _SearchresultState extends State<Searchresult> {
           }
         ]),
       }, SetOptions(merge: true));
+
       await removeCloseFriends();
       fetchCloseFriends();
     print('user id: ${user!.uid}');
@@ -300,6 +477,17 @@ class _SearchresultState extends State<Searchresult> {
       print('error same user:$e');
     }
   }
+  bool issubson=false;
+  Future<void> fetchsubsstate()async{
+
+      final docsnap=await _firestore.collection('Subscriber Mode').doc(widget.userid).get();
+      if(docsnap.exists){
+        setState(() {
+          issubson=docsnap.data()?['Mode On/Off'];
+        });
+      }
+    print('subs mode $issubson');
+  }
   Future<void> updateImagesPeriodically() async {
     while (true) {
       await Future.delayed(Duration(seconds: 2));
@@ -307,6 +495,9 @@ class _SearchresultState extends State<Searchresult> {
       fetchcaptions();
       fetchpostscount();
       fetchFollowers();
+      fetchsubsstate();
+      fetchfollowers();
+      fetchfollowings();
     }
   }
   int followers=0;
@@ -475,6 +666,38 @@ class _SearchresultState extends State<Searchresult> {
       print('Error fetching images: $e');
     }
   }
+  bool issubs=false;
+  List<String> subscribers = [];
+
+  Future<void> fetchSubscribers() async {
+    final user=_auth.currentUser;
+    try {
+      final docSnap = await _firestore.collection('Subscription').doc(widget.userid).get();
+
+      if (docSnap.exists) {
+        // Retrieve the 'SubscribedUserid' field from the document
+        dynamic subscribedUserIdsDynamic = docSnap.get('SubscribedUserid');
+
+        // Explicitly cast the dynamic list to List<String> or default to an empty list
+        List<String> subscribedUserIds = List<String>.from(subscribedUserIdsDynamic) ?? [];
+
+        // Update the subscribers list with the user IDs from the field
+        subscribers = subscribedUserIds;
+        print('Subscribers list after updating: $subscribers');
+        if(subscribers.contains(user!.uid)){
+          setState(() {
+            issubs=true;
+          });
+          print('is subs $issubs');
+        }
+      } else {
+        print('Document does not exist in Firestore.');
+      }
+    } catch (e) {
+      print('Error fetching data from Firestore: $e');
+    }
+  }
+
   String userbio = '';
   Future<void> fetchbio() async {
     final user = _auth.currentUser;
@@ -488,6 +711,29 @@ class _SearchresultState extends State<Searchresult> {
       }
     } catch (e) {
       print('bio error:$e');
+    }
+  }
+  List<String> subsurls=[];
+  Future<void>fetchsubsurls() async{
+    final user = _auth.currentUser;
+
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('Subscriber Specific')
+          .doc(widget.userid)
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['posts'] as List?) ?? [];
+          setState(() {
+            subsurls = posts.map((post) => post['imageUrl'].toString()).toList();
+          });
+        }
+      }
+    } catch (e) {
+      print('Error fetching images: $e');
     }
   }
   String? storyurl;
@@ -522,7 +768,7 @@ class _SearchresultState extends State<Searchresult> {
       appBar: AppBar(
         automaticallyImplyLeading: true,
         leading: IconButton(onPressed: (){
-          Navigator.push(context, MaterialPageRoute(builder: (context) => Search(),));
+          Navigator.pop(context);
         },
             icon: Icon(CupertinoIcons.back,color: CupertinoColors.white,)),
         backgroundColor: Colors.black,
@@ -537,7 +783,7 @@ class _SearchresultState extends State<Searchresult> {
               Image.network('https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
               height: 40,
                 width: 40,
-              )
+              ),
           ],
         ),
       ),
@@ -552,7 +798,7 @@ class _SearchresultState extends State<Searchresult> {
                 SizedBox(
                   width: 20,
                 ),
-                isfollowed & isclosefriend & storyuploaded?InkWell(
+                isfollowed & storyuploaded?InkWell(
                   onTap: ()async{
                     if (storyurl != null) {
                       _addseenuser();
@@ -709,10 +955,10 @@ class _SearchresultState extends State<Searchresult> {
                         onTap: (){
                           Navigator.push(context, MaterialPageRoute(builder: (context) => Searcheduserfollowers(userid: widget.userid),));
                         },
-                        child: Text('$followerscount',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),)),
-                    if(followerscount<=1)
+                        child: Text('${followerss.length}',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),)),
+                    if(followerss.length<=1)
                       Text('Follower',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
-                    if(followerscount>1)
+                    if(followerss.length>1)
                       Text('Followers',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),)
                   ],
                 ),
@@ -725,10 +971,10 @@ class _SearchresultState extends State<Searchresult> {
                       height: 1,
                     ),
 
-                    Text('$searchedfollower',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
-                    if(searchedfollower<=1)
+                    Text('${followings.length}',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
+                    if(followings.length<=1)
                       Text('Following',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
-                    if(searchedfollower>1)
+                    if(followings.length>1)
                       Text('Following',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),)
                   ],
                 )
@@ -791,70 +1037,193 @@ class _SearchresultState extends State<Searchresult> {
                 if(!sameuser)
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Column(
                       children: [
-                        ElevatedButton(
-                          onPressed: () async {
-                            isfollowed ? unfollow() : updatefollower();
-                            fetchFollowers();
-                          },
-                          style: ButtonStyle(
-                            backgroundColor: isfollowed
-                                ? MaterialStatePropertyAll(Colors.grey[800])
-                                : MaterialStatePropertyAll(Colors.blue),
-                          ),
-                          child: isfollowed
-                              ? Text(
-                            'Following',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            ElevatedButton(
+                              onPressed: () async {
+                                isfollowed ? unfollow() : updatefollower();
+                                fetchFollowers();
+                              },
+                              style: ButtonStyle(
+                                backgroundColor: isfollowed
+                                    ? MaterialStatePropertyAll(Colors.grey[800])
+                                    : MaterialStatePropertyAll(Colors.blue),
+                              ),
+                              child: isfollowed
+                                  ? Text(
+                                'Following',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                                  : Text(
+                                'Follow',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          )
-                              : Text(
-                            'Follow',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                            SizedBox(
+                              width: 10,
                             ),
-                          ),
+                            isfollowed?isclosefriend?ElevatedButton(onPressed: (){
+                              removeCloseFriends();
+                              fetchCloseFriends();
+                            }, 
+                                style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.grey[800])),
+                                child:Row(
+                                  children: [
+                                    Text(
+                                      'Remove from close friends',
+                                      style: TextStyle(
+                                    color: Colors.red[500],
+                                    fontWeight: FontWeight.bold,
+                                                              ),
+                                                            ),
+                                  ],
+                                ) ):ElevatedButton(onPressed: (){
+                              addCloseFriends();
+                              fetchCloseFriends();
+                            },
+                              style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.grey[800])),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.star,color: Colors.green,),
+                                  Text(
+                                  ' Add to close friends',
+                                  style: TextStyle(
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                                          ),
+                                ],
+                              ),):Container()
+                          ],
                         ),
                         SizedBox(
-                          width: 10,
+                          height: 20,
                         ),
-                        isfollowed?isclosefriend?ElevatedButton(onPressed: (){
-                          removeCloseFriends();
-                          fetchCloseFriends();
-                        }, 
-                            style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.grey[800])),
-                            child:Row(
-                              children: [
-                                Text(
-                                  'Remove from close friends',
-                                  style: TextStyle(
-                                color: Colors.red[500],
-                                fontWeight: FontWeight.bold,
-                                                          ),
-                                                        ),
-                              ],
-                            ) ):ElevatedButton(onPressed: (){
-                          addCloseFriends();
-                          fetchCloseFriends();
-                        },
-                          style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.grey[800])),
-                          child: Row(
-                            children: [
-                              Icon(Icons.star,color: Colors.green,),
-                              Text(
-                              ' Add to close friends',
-                              style: TextStyle(
-                                color: Colors.green,
-                                fontWeight: FontWeight.bold,
+                        issubson?isfollowed?issubs?Center(
+                          child: ElevatedButton(onPressed: (){
+                            showDialog(context: context, builder: (context) {
+                              return AlertDialog(
+                                backgroundColor: Colors.black,
+                                title: Text('Are you sure to cancel subscription',style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15
+                                ),),
+                                scrollable: true,
+                                actions: [
+                                  Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Center(
+                                        child: Text('Subscription once deleted need to be purchased again',style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w300,
+                                            fontSize: 15
+                                        ),),
+                                      ),
+                                      SizedBox(
+                                        height: 20,
+                                      ),
+                                      Row(
+                                        children: [
+                                          ElevatedButton(onPressed: ()async{
+                                            final user = _auth.currentUser;
+                                            await _firestore.collection('Subscription').doc(widget.userid).set(
+                                              {
+                                                'SubscribedUserid': FieldValue.arrayRemove([user!.uid])
+                                              },
+                                              SetOptions(merge: true),
+                                            );
+                                            
+                                            Navigator.pop(context);
+                                            fetchSubscribers();
+                                          }, child: Text('Go Ahead',style: TextStyle(
+                                              color: Colors.black,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15
+                                          ),
+                                          ),
+                                            style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.green)),
+                                          ),
+                                          SizedBox(
+                                            width: 10,
+                                          ),
+                                          ElevatedButton(onPressed: (){
+                                            Navigator.pop(context);
+                                          },
+                                              child: Text('Cancel',style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15
+                                          ),
+                                              ),
+                                            style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.red)),
+                                          ),
+                                        ],
+                                      )
+                                    ],
+                                  )
+                                ],
+                              );
+                            },);
+
+                          },
+                              style: ButtonStyle(
+                                  backgroundColor: MaterialStatePropertyAll(Colors.grey[600])
                               ),
-                                                      ),
-                            ],
-                          ),):Container()
+                              child: Row(
+                                children: [
+                                  Text('Subscribed',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),),
+                                ],
+                              )),
+                        ):Center(
+                          child: ElevatedButton(onPressed: (){
+                            Razorpay razorpay = Razorpay();
+                            var options = {
+                              'key': 'rzp_test_WoKAUdpbPOQlXA',
+                              'amount': price*100, // amount in the smallest currency unit
+                              'timeout': 300,
+                              'name': 'FotoFusion',
+                              'description': 'Subscription For NetFly.Only for two screens',
+                              'theme': {
+                                'color': '#FF0000',
+                              },
+                            };
+
+                            razorpay.open(options);
+                            razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, (PaymentSuccessResponse response) async{
+                              print('Payment Success');
+                              final user = _auth.currentUser;
+                              await _firestore.collection('Subscription').doc(widget.userid).set(
+                                {
+                                  'SubscribedUserid': FieldValue.arrayUnion([user!.uid])
+                                },
+                                SetOptions(merge: true),
+                              );
+
+                            }
+                            );
+                            fetchSubscribers();
+                          },
+                              style: ButtonStyle(
+                                  backgroundColor: MaterialStatePropertyAll(Colors.blue[500])
+                              ),
+                              child: Row(
+                                children: [
+                                  Text('Subscribe',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),),
+                                ],
+                              )),
+                        ):Container():Container()
                       ],
                     ),
                   ),
@@ -897,15 +1266,25 @@ class _SearchresultState extends State<Searchresult> {
                 ),
                 IconButton(onPressed: (){}, icon: Icon(CupertinoIcons.photo,color: Colors.white,)),
                 SizedBox(
-                  width: 80,
+                  width: 30,
                 ),
                 if(isfollowed)
                   if(reelsurls.length>0)
                     IconButton(onPressed: (){
                       Navigator.push(context, MaterialPageRoute(builder: (context) => Searchuserreels(userid: widget.userid)));
                     }, icon: Icon(Icons.movie,color: Colors.grey,)),
+                SizedBox(
+                  width: 30,
+                ),
+                if(isfollowed)
+                  if(issubs)
+                    if(subsurls.length>0)
+                      IconButton(onPressed: (){
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => Subsspecial(userid: widget.userid),));
+                      }, icon: Icon(Icons.star_outline,color: Colors.grey,)),
               ],
             ),
+
             if(isfollowed)
               for (int i = 0; i < imageUrls.length; i += 2)
                 Column(
@@ -917,13 +1296,15 @@ class _SearchresultState extends State<Searchresult> {
                         SizedBox(width: 20),
                         if (i < imageUrls.length)
                           ElevatedButton(
-                            onPressed: () {
-                              // Navigator.push(
-                              //   context,
-                              //   MaterialPageRoute(
-                              //     builder: (context) => detailpostpage(startIndex: i),
-                              //   ),
-                              // );
+                            onPressed: ()async{
+                              updateaccountinteraction();
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => detailed_searched_user(startIndex: i, userId: widget.userid),
+                                ),
+                              );
+
                             },
                             style: ButtonStyle(
                               backgroundColor: MaterialStateProperty.all(Colors.black),
@@ -938,13 +1319,15 @@ class _SearchresultState extends State<Searchresult> {
                         SizedBox(width: 10),
                         if (i + 1 < imageUrls.length)
                           ElevatedButton(
-                            onPressed: () {
-                              // Navigator.push(
-                              //   context,
-                              //   MaterialPageRoute(
-                              //     builder: (context) => detailpostpage(startIndex: i + 1),
-                              //   ),
-                              // );
+                            onPressed: ()async{
+                              updateaccountinteraction();
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => detailed_searched_user(startIndex: i+1, userId: widget.userid),
+                                ),
+                              );
+
                             },
                             style: ButtonStyle(
                               backgroundColor: MaterialStateProperty.all(Colors.black),

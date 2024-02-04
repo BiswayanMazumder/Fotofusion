@@ -1,10 +1,11 @@
+import 'dart:math';
+import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:fotofusion/pages/search_screen.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:video_player/video_player.dart';
+
 class ExplorePage extends StatefulWidget {
   const ExplorePage({Key? key}) : super(key: key);
 
@@ -13,14 +14,11 @@ class ExplorePage extends StatefulWidget {
 }
 
 class _ExplorePageState extends State<ExplorePage> {
-  TextEditingController _SearchController=TextEditingController();
+  TextEditingController _searchController = TextEditingController();
   List<String> imageUrls = [];
-  List<String> captions=[];
-  List<String> usernames = [];
-  List<String> profilephotos=[];
+  List<String> reelsurls = [];
   FirebaseAuth _auth = FirebaseAuth.instance;
   FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   Future<void> fetchImages() async {
     final user = _auth.currentUser;
@@ -40,95 +38,158 @@ class _ExplorePageState extends State<ExplorePage> {
           });
         }
       }
+      print('reels $imageUrls');
     } catch (e) {
       print('Error fetching images: $e');
     }
   }
+
   Future<void> updateImagesPeriodically() async {
     while (true) {
       await Future.delayed(Duration(seconds: 2));
       fetchImages();
+      fetchReels();
     }
   }
+
+  Future<void> fetchReels() async {
+    final user = _auth.currentUser;
+
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('Reels')
+          .doc(user?.uid)
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['reels'] as List?) ?? [];
+          setState(() {
+            reelsurls =
+                posts.map((post) => post['mediaUrl'].toString()).toList();
+          });
+
+          // Initialize Chewie controller
+        }
+      }
+      print('Reels $reelsurls');
+    } catch (e) {
+      print('Error fetching reels: $e');
+    }
+  }
+
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     updateImagesPeriodically();
+    fetchReels();
   }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SingleChildScrollView(
-        child: Column(
-         children: [
-           SizedBox(
-             height: 50,
-           ),
-           ElevatedButton(
-             onPressed: (){
-               Navigator.push(context, MaterialPageRoute(builder: (context) => Search(),));
-             },
-             style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.black)),
-             child: TextField(
-               style: TextStyle(color: Colors.white),
-               controller: _SearchController,
-               decoration: InputDecoration(
-                 fillColor: Colors.grey[900],
-                 filled: true,
-                 prefixIcon: Icon(Icons.search,color: Colors.white,),
-                 hintText:'Search',
-                 hintStyle: TextStyle(color: Colors.grey)
-               ),
-             ),
-           ),
-           SizedBox(
-             height: 10,
-           ),
-           for (int i = 0; i < imageUrls.length; i += 2)
-           Column(
-             children: [
-               SizedBox(height: 20),
-               Row(
-                 mainAxisAlignment: MainAxisAlignment.start,
-                 children: [
-                   SizedBox(width: 10),
-                   if (i < imageUrls.length)
-                     Image.network(
-                       imageUrls[i],
-                       width: 120,
-                       height: 120,
-                       fit: BoxFit.cover,
-                     ),
-                   SizedBox(width: 10),
-                   if (i + 1 < imageUrls.length)
-                     Image.network(
-                       imageUrls[i + 1],
-                       width: 120,
-                       height: 120,
-                       fit: BoxFit.cover,
-                     ),
-                   SizedBox(width: 10),
-                   if (i + 2 < imageUrls.length)
-                     Image.network(
-                       imageUrls[i + 2],
-                       width: 120,
-                       height: 120,
-                       fit: BoxFit.cover,
-                     ),
-                 ],
-               ),
-             ],
-           ),
-         ],
-        ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+            child: Text(
+              'Explore',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              style: TextStyle(color: Colors.white),
+              controller: _searchController,
+              decoration: InputDecoration(
+                fillColor: Colors.grey[900],
+                filled: true,
+                prefixIcon: Icon(Icons.search, color: Colors.white),
+                hintText: 'Search',
+                hintStyle: TextStyle(color: Colors.grey),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GridView.builder(
+              itemCount: imageUrls.length + reelsurls.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                mainAxisSpacing: 8.0,
+                crossAxisSpacing: 8.0,
+              ),
+              itemBuilder: (context, index) {
+                if (index < imageUrls.length) {
+                  // Build image widget
+                  return Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      image: DecorationImage(
+                        image: NetworkImage(imageUrls[index]),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  );
+                } else {
+                  // Build video widget
+                  int videoIndex = index - imageUrls.length;
+                  VideoPlayerController videoPlayerController =
+                  VideoPlayerController.network(reelsurls[videoIndex]);
+
+                  ChewieController _chewieController = ChewieController(
+                    videoPlayerController: videoPlayerController,
+                    aspectRatio: 1,
+                    autoInitialize: true,
+                    autoPlay: true,
+                    allowMuting: true,
+                    cupertinoProgressColors: ChewieProgressColors(),
+                    looping: true,
+                    allowedScreenSleep: false,
+                    draggableProgressBar: true,
+                    allowFullScreen: true,
+                    showControls: false,
+                    // Set to false to hide controls
+                    placeholder: Center(
+                      child: CircularProgressIndicator(color: Colors.white,),
+                    ),
+                  );
+
+                  // Add error handling
+                  videoPlayerController.addListener(() {
+                    if (videoPlayerController.value.hasError) {
+                      print('Video Player Error: ${videoPlayerController.value.errorDescription}');
+                    }
+                  });
+
+                  return GestureDetector(
+                    onTap: () {
+                      // Handle tap on a reel (if needed)
+                    },
+                    child: Container(
+                      width: MediaQuery.of(context).size.width * 0.5,
+                      height: MediaQuery.of(context).size.width * 0.5,
+                      child: Chewie(
+                        controller: _chewieController,
+                      ),
+                    ),
+                  );
+                }
+              },
+            ),
+          ),
+        ],
       ),
     );
-  }
-  @override
-  void dispose() {
-    // TODO: implement dispose
-    super.dispose();
   }
 }

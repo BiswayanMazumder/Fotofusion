@@ -8,14 +8,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:elegant_notification/elegant_notification.dart';
-class Story extends StatefulWidget {
-  const Story({Key? key}) : super(key: key);
+class Subscriber_specific extends StatefulWidget {
+  const Subscriber_specific({Key? key}) : super(key: key);
 
   @override
-  State<Story> createState() => _StoryState();
+  State<Subscriber_specific> createState() => _Subscriber_specificState();
 }
 
-class _StoryState extends State<Story> {
+class _Subscriber_specificState extends State<Subscriber_specific> {
   String? _imageUrl;
   String username = 'Loading';
   bool _uploading = false;
@@ -61,6 +61,7 @@ class _StoryState extends State<Story> {
   void initState() {
     super.initState();
     _loadProfilePicture();
+    fetchpostscount();
     fetchusername();
     fetchverification();
   }
@@ -72,7 +73,7 @@ class _StoryState extends State<Story> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         title: Text(
-          'Upload a story',
+          'Upload a post',
           style: TextStyle(
               color: CupertinoColors.white, fontWeight: FontWeight.bold),
         ),
@@ -88,8 +89,7 @@ class _StoryState extends State<Story> {
         actions: [
           TextButton(
             onPressed: () {
-              deleteoldstory();
-              _uploadPosts();
+              _uploadPost();
             },
             child: Text(
               'Post',
@@ -191,6 +191,78 @@ class _StoryState extends State<Story> {
               ),
               controller: _captionController,
             ),
+            SizedBox(
+              height: 50,
+            ),
+            TextField(
+              style: TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                contentPadding: EdgeInsets.only(left: 20),
+                prefixIcon: _uploading
+                    ? CircularProgressIndicator(
+                  color: Colors.red,
+                )
+                    : _imageUrl == null
+                    ? Container(
+                  width: 50,
+                  height: 50,
+                  margin: EdgeInsets.only(right: 20),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.black,
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.5),
+                        spreadRadius: 2,
+                        blurRadius: 5,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    backgroundImage: NetworkImage(
+                      'https://firebasestorage.googleapis.com/v0/'
+                          'b/fotofusion-53943.appspot.com/o/profile%2'
+                          '0pics.jpg?alt=media&token=17bc6fff-cfe9-4f2d-9'
+                          'a8c-18d2a5636671',
+                    ),
+                  ),
+                )
+                    : Container(
+                  width: 50,
+                  height: 50,
+                  margin: EdgeInsets.only(right: 20),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.black,
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.5),
+                        spreadRadius: 2,
+                        blurRadius: 5,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    backgroundImage: NetworkImage(_imageUrl!),
+                  ),
+                ),
+                hintText: 'Write your location...',
+                hintStyle: TextStyle(color: Colors.white),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(25.0),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              controller: _locationController,
+            ),
           ],
         ),
       ),
@@ -217,6 +289,36 @@ class _StoryState extends State<Story> {
       }
     }
   }
+  int count=0;
+  Future<void> fetchpostscount() async{
+    final user=_auth.currentUser;
+    final docsnap=await _firestore.collection('Number of posts').doc(user!.uid).get();
+    if(docsnap.exists){
+      setState(() {
+        count=docsnap.data()?['post count'];
+      });
+    }
+  }
+  Future<void> uploadpostcount() async {
+    try{
+      final user = _auth.currentUser;
+      setState(() {
+        count += 1;
+      });
+      await _firestore.collection('Number of posts').doc(user!.uid).set({
+        'post count': count,
+      });
+      ElegantNotification.success(
+          title:  Text("Posted"),
+          description:  Text("Your post has been succesfully uploaded")
+      ).show(context);
+    }catch(e){
+      ElegantNotification.error(
+          title:  Text("OOPS!"),
+          description:  Text("We encountered an error while posting")
+      ).show(context);
+    }
+  }
   bool isverified=false;
   Future<void> fetchverification() async{
     final user=_auth.currentUser;
@@ -227,15 +329,7 @@ class _StoryState extends State<Story> {
       });
     }
   }
-  Future<void> deleteoldstory()async{
-    final user=_auth.currentUser;
-    if(user!=null)
-      {
-        await _firestore.collection('Story Seen').doc(user.uid).delete();
-      }
-  }
-  Future<void> _uploadPosts() async {
-    await deleteoldstory();
+  Future<void> _uploadPost() async {
     final user = _auth.currentUser;
     if (user != null && _image != null) {
       setState(() {
@@ -244,15 +338,21 @@ class _StoryState extends State<Story> {
 
       try {
         // Use set with merge option instead of update
-        await _firestore.collection('Story').doc(user!.uid).set({
-          'story': await _uploadImage(),
-          'time':FieldValue.serverTimestamp(),
-          'caption':_captionController.text,
-          'story seen':false,
-        });
+        await _firestore.collection('Subscriber Specific').doc(user.uid).set({
+          'posts': FieldValue.arrayUnion([
+            {
+              'imageUrl': await _uploadImage(),
+              'caption': _captionController.text,
+              'location':_locationController.text
+            },
+          ]),
+        }, SetOptions(merge: true));
+
         setState(() {
           _uploading = false;
         });
+
+        // Navigate to the user's account page after posting
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => NavBar()),
@@ -271,10 +371,11 @@ class _StoryState extends State<Story> {
     }
   }
 
+
   Future<String> _uploadImage() async {
     // Define the path for the new image in Firebase Storage
     final user=_auth.currentUser;
-    String imagePath = 'story/${user!.uid}/post_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    String imagePath = 'Subscriber Specific/${user!.uid}/subs_specific${DateTime.now().millisecondsSinceEpoch}.jpg';
 
     // Upload the image to Firebase Storage
     TaskSnapshot uploadTask = await _storage.ref(imagePath).putFile(_image!);

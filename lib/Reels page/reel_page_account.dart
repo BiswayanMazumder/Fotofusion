@@ -14,6 +14,8 @@ import 'package:fotofusion/posts/reels.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
+
+import '../Subscribers_only/subs_special.dart';
 class Reelpage_account extends StatefulWidget {
   const Reelpage_account({Key? key}) : super(key: key);
 
@@ -30,6 +32,29 @@ class _Reelpage_accountState extends State<Reelpage_account> {
   File? _image;
   bool isverified = false;
   bool _uploading = false;
+  List<String> subsurls=[];
+  Future<void>fetchsubsurls() async{
+    final user = _auth.currentUser;
+
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('Subscriber Specific')
+          .doc(user?.uid)
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['posts'] as List?) ?? [];
+          setState(() {
+            subsurls = posts.map((post) => post['imageUrl'].toString()).toList();
+          });
+        }
+      }
+    } catch (e) {
+      print('Error fetching images: $e');
+    }
+  }
   late VideoPlayerController _controller;
   Future<void> _loadProfilePicture() async {
     final user = _auth.currentUser;
@@ -207,6 +232,7 @@ class _Reelpage_accountState extends State<Reelpage_account> {
           });
         }
       }
+      print('reels $reelsurls');
     } catch (e) {
       print('Error fetching images: $e');
     }
@@ -233,6 +259,7 @@ class _Reelpage_accountState extends State<Reelpage_account> {
     fetchverification();
     fetchusername();
     fetchfollowing();
+    fetchsubsurls();
     fetchfollowerscount();
     fetchlink();
     fetchpostscount();
@@ -602,11 +629,21 @@ class _Reelpage_accountState extends State<Reelpage_account> {
                       MaterialPageRoute(builder: (context) => NavBar(),));
                 }, icon: Icon(CupertinoIcons.photo, color: Colors.grey,)),
                 SizedBox(
-                  width: 80,
+                  width: 30,
                 ),
                 if(reelsurls.length > 0)
                   IconButton(onPressed: () {},
                       icon: Icon(Icons.movie, color: Colors.white,)),
+                SizedBox(
+                  width: 30,
+                ),
+                if(subsurls.length>0)
+                  IconButton(
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => subs_special(),));
+                    },
+                    icon: Icon(Icons.star_outline, color: Colors.grey),
+                  ),
               ],
             ),
             SizedBox(height: 20),
@@ -624,12 +661,14 @@ class _Reelpage_accountState extends State<Reelpage_account> {
                   VideoPlayerController videoPlayerController =
                   VideoPlayerController.networkUrl(Uri.parse(reelsurls[index]));
 
-                  _chewieController = ChewieController(
+                  ChewieController _chewieController = ChewieController(
                     videoPlayerController: videoPlayerController,
                     aspectRatio: 1,
-                    autoInitialize: true, // Set to true for auto-initializing
+                    autoInitialize: true,
                     autoPlay: true,
-                    looping: true, // Set to true for looping
+                    allowMuting: true,
+                    cupertinoProgressColors: ChewieProgressColors(),
+                    looping: true,
                     allowedScreenSleep: false,
                     draggableProgressBar: true,
                     allowFullScreen: true,
@@ -642,8 +681,7 @@ class _Reelpage_accountState extends State<Reelpage_account> {
                   // Add error handling
                   videoPlayerController.addListener(() {
                     if (videoPlayerController.value.hasError) {
-                      print(
-                          'Video Player Error: ${videoPlayerController.value.errorDescription}');
+                      print('Video Player Error: ${videoPlayerController.value.errorDescription}');
                     }
                   });
 
@@ -652,8 +690,8 @@ class _Reelpage_accountState extends State<Reelpage_account> {
                       // Handle tap on a reel (if needed)
                     },
                     child: Container(
-                      width: 120,
-                      height: 150,
+                      width: MediaQuery.of(context).size.width * 0.5, // Adjust width as needed
+                      height: MediaQuery.of(context).size.width * 0.5, // Adjust height as needed
                       child: Chewie(
                         controller: _chewieController,
                       ),

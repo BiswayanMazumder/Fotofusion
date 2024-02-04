@@ -138,7 +138,7 @@ class _Reels_pageState extends State<Reels_page> {
       });
 
     } catch (e) {
-
+      print('reel $e');
     }
   }
 
@@ -160,6 +160,7 @@ class _Reels_pageState extends State<Reels_page> {
               'profile photo': _imageUrl,
               'location': _locationController.text,
               'isImage': widget.isImage,
+              'uid':user?.uid
             },
           ]),
         }, SetOptions(merge: true));

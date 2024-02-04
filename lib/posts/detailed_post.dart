@@ -154,7 +154,7 @@ class _detailpostpageState extends State<detailpostpage> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         leading: IconButton(onPressed: (){
-          Navigator.push(context, MaterialPageRoute(builder: (context) => NavBar()));
+          Navigator.pop(context);
         }, icon: Icon(CupertinoIcons.back,color: CupertinoColors.white,)),
         title:Text('Posts',style: TextStyle(color: Colors.white),)
       ),
@@ -237,7 +237,7 @@ class _detailpostpageState extends State<detailpostpage> {
                 Container(
                   height: 600,
                   width: 700,
-                  color: Colors.white,
+                  color: Colors.black,
                   child: Image.network(
                     imageUrls[widget.startIndex],
                     height: 500,

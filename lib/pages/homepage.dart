@@ -1,7 +1,12 @@
+import 'dart:async';
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:fotofusion/Chatbots/chatbot.dart';
+import 'package:fotofusion/Notifications/notifications.dart';
+import 'package:fotofusion/Searches/search_result.dart';
 import 'package:fotofusion/account%20page/comment_page.dart';
 import 'package:fotofusion/pages/homepage.dart';
+import 'package:insta_image_viewer/insta_image_viewer.dart';
 import 'package:fotofusion/pages/report_page.dart';
 import 'package:insta_image_viewer/insta_image_viewer.dart';
 import 'package:path_provider/path_provider.dart';
@@ -12,7 +17,8 @@ import 'dart:math';
 import 'package:all_vibrate/all_vibrate.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:shake/shake.dart';
-
+import 'package:shimmer_image/shimmer_image.dart';
+import 'package:fading_edge_scrollview/fading_edge_scrollview.dart';
 class Homepage extends StatefulWidget {
   const Homepage({Key? key}) : super(key: key);
 
@@ -84,23 +90,6 @@ class _HomepageState extends State<Homepage> {
       print("Error getting story: $e");
     }
   }
-  String? _imageUrl;
-  Future<void> _loadProfilePicture() async {
-    final user = _auth.currentUser;
-    if (user != null) {
-      try {
-        final docSnapshot =
-        await _firestore.collection('profile_pictures').doc(user.uid).get();
-        if (docSnapshot.exists) {
-          setState(() {
-            _imageUrl = docSnapshot.data()?['url_user1'];
-          });
-        }
-      } catch (e) {
-        print('Error loading profile picture: $e');
-      }
-    }
-  }
   Future<void> writestoryseen() async{
     final user=_auth.currentUser;
     await _firestore.collection('Story').doc(user!.uid).update(
@@ -118,20 +107,296 @@ class _HomepageState extends State<Homepage> {
     print('Story seen $storyseen');
   }
   final screenshotController = ScreenshotController();
+  List<String> usernamess = [];
+  List<bool> verificationStatuses = [];
+  List<String> profileurls=[];
+  Future<void> fetchAllUserIds() async {
+    final user=_auth.currentUser;
+    try {
+      final snapshot = await _firestore.collection('Story Seen').doc(user!.uid).get();
 
+      if (snapshot.exists) {
+        List<String> userIds = [];
+        final seenData = snapshot.data()?['Seen'];
+
+        if (seenData is List) {
+          for (var userMap in seenData) {
+            if (userMap is Map && userMap.containsKey('user id')) {
+              String userId = userMap['user id'];
+              userIds.add(userId);
+            }
+          }
+        }
+
+        // Now userIds list contains all the user IDs stored in the 'Story Seen' collection
+        // You can use this list to fetch usernames and verification statuses
+        fetchUserDetails(userIds);
+      }
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  Future<void> fetchUserDetails(List<String> userIds) async {
+    for (String userId in userIds) {
+      try {
+        // Fetch username
+        final usernameDoc =
+        await _firestore.collection('User Details').doc(userId).get();
+        if (usernameDoc.exists) {
+          setState(() {
+            String username = usernameDoc.data()?['user names'] ?? '';
+            usernamess.add(username);
+          });
+        }
+        //fetch profile picture
+        final profilepicdoc =
+        await _firestore.collection('profile_pictures').doc(userId).get();
+        if (profilepicdoc.exists) {
+          setState(() {
+            String urls = profilepicdoc.data()?['url_user1'] ?? '';
+            profileurls.add(urls);
+          });
+        }
+        else{
+          setState(() {
+            profileurls.add('https://images.pexels.com/photos/19861151/pexels-photo-1986115'
+                '1/free-photo-of-a-mountain-stream-is-flowing-through-a-forest.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1');
+          });
+        }
+        // Fetch verification status
+        final verificationDoc =
+        await _firestore.collection('Verifications').doc(userId).get();
+        if (verificationDoc.exists) {
+          setState(() {
+            bool isVerified = verificationDoc.data()?['isverified'] ?? false;
+            verificationStatuses.add(isVerified);
+          });
+        }
+        print('usernames length: ${usernames.length}');
+        print('verificationStatuses length: ${verificationStatuses.length}');
+        print('profileurls length: ${profileurls.length}');
+
+      } catch (e) {
+        print(e);
+      }
+    }
+    // After fetching all data, trigger a UI update
+    setState(() {});
+  }
+  List<String> documentNames = [];
+  List<String> fetchedUsernames = [];
+
+  Future<List<String>> getusernames() async {
+    try {
+      for (String userId in documentNames) {
+        print('Fetching user with ID: $userId');
+        DocumentSnapshot userSnapshot =
+        await FirebaseFirestore.instance.collection('User Details').doc(userId).get();
+
+        if (userSnapshot.exists) {
+          setState(() {
+            String username = userSnapshot['user name'];
+            fetchedUsernames.add(username);
+          });
+        } else {
+          // Handle the case where the user document doesn't exist
+          fetchedUsernames.add('User not found for ID: $userId');
+        }
+      }
+
+      return fetchedUsernames;
+    } catch (e) {
+      print('Error fetching usernames: $e');
+      return fetchedUsernames; // or throw an exception if needed
+    }
+  }
+  List<String> usernamearray = [];
+  List<String> userverifications=[];
+  List<bool> verifs=[];
+
+  Future<List<String>> getStoryUsernames() async {
+    try {
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance.collection('Story').get();
+
+      for (QueryDocumentSnapshot collectionSnapshot in querySnapshot.docs) {
+        String documentName = collectionSnapshot.id;
+
+        if (documentName != null) {
+          documentNames.add(documentName);
+        }
+      }
+      print('document names $documentNames');
+    } catch (e) {
+      // Handle errors, e.g., Firestore not reachable
+      print('Error retrieving document names: $e');
+    }
+
+    print(documentNames);
+
+
+
+    // Fetch usernames based on user IDs
+    for (String userId in documentNames) {
+      try {
+        DocumentSnapshot userSnapshot = await FirebaseFirestore.instance.collection('User Details').doc(userId).get();
+
+        if (userSnapshot.exists) {
+          String username = userSnapshot.get('user name');
+          if (username != null) {
+            usernamearray.add(username);
+          }
+        }
+      } catch (e) {
+        // Handle errors while fetching user details
+        print('Error retrieving username for user ID $userId: $e');
+      }
+    }
+    //fetch verifications
+    for (String userId in documentNames) {
+      try {
+        DocumentSnapshot userSnapshots = await FirebaseFirestore.instance.collection('Verifications').doc(userId).get();
+
+        if (userSnapshots.exists) {
+          bool verif = userSnapshots.get('isverified');
+          if (verif != null) {
+            verifs.add(verif);
+          }
+        }
+      } catch (e) {
+        // Handle errors while fetching user details
+        print('Error retrieving username for user ID $userId: $e');
+      }
+    }
+    print(verifs);
+    print(usernamearray);
+    return usernames;
+  }
+  List<Map<String, dynamic>> allDocs = [];
+
+  Future<void> fetchStories() async {
+    try {
+      // Fetch documents from the 'Story' collection
+      QuerySnapshot<Map<String, dynamic>> snapshot =
+      await FirebaseFirestore.instance.collection('Story').get();
+
+      // Initialize an empty list to store story links
+      List<String> links = [];
+
+      // Iterate through the documents in the snapshot
+      for (QueryDocumentSnapshot<Map<String, dynamic>> doc in snapshot.docs) {
+        // Access the data from each document
+        Map<String, dynamic> docData = doc.data();
+
+        // Add the document data to the list of all documents
+        allDocs.add(docData);
+
+        // Access the 'story' field using the null-aware operator
+        String storyLink = docData['story'] ?? '';
+
+        // Add the story link to the list
+        links.add(storyLink);
+      }
+
+      // Update the state with the list of story links
+      setState(() {
+        storyLinks = links;
+      });
+      likedstory = List.filled(storyLinks.length, false);
+      print('is liked $likedstory');
+    } catch (e) {
+      // Handle any errors that occur during the process
+      print('Error fetching stories: $e');
+    }
+  }
+  List<String> uids=[];
+  Future<void> fetchuids() async {
+    final user = _auth.currentUser;
+
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('All posts')
+          .doc('Global Post')
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['posts'] as List?) ?? [];
+          setState(() {
+            uids =
+                posts.map((post) => post['uid'].toString()).toList();
+          });
+        }
+      }
+      print('Uids $uids');
+    } catch (e) {
+      print('Error fetching uid: $e');
+    }
+  }
+  List<String> followers=[];
+  List<String> follow=[];
+  Future<void> fetchfollowers() async {
+    await fetchuids();
+    final user = _auth.currentUser;
+
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('Following')
+          .doc(user?.uid)
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['Followers'] as List?) ?? [];
+          setState(() {
+            followers =
+                posts.map((post) => post['followerUid'].toString()).toList();
+          });
+        }
+      }
+      print('Uid $uids ${uids.length}'); //8
+      print('followers $followers ${followers.length}'); //3
+      for (int i = 0; i < uids.length; i++) {
+        if (uids[i] == user?.uid ) {
+          follow.add('True');
+        }
+        else if(followers.contains(uids[i])){
+          follow.add('true');
+        }
+        else {
+          follow.add('false');
+        }
+      }
+
+      print('follow true/false $follow ${follow.length}');
+    } catch (e) {
+      print('Error fetching followers: $e');
+    }
+  }
   @override
   void initState() {
     super.initState();
+    fetchfollowers();
+    fetchuids();
     initializeNumberOfPosts();
+    fetchusernameofuser();
+    fetchStories();
+    fetchLikedUids();
     initializeLikedUsersList();
     updateImagesPeriodically();
     fetchverifications();
+    getusernames();
     fetchstoryseen();
     _loadstory();
     fetchprofilephoto();
     fetchusername();
+    fetchAllUserIds();
     final vibrate = AllVibrate();
     showVerification();
+    fetchStories();
+    getStoryUsernames();
     ShakeDetector detector = ShakeDetector.autoStart(
         onPhoneShake: () {
           vibrate.simpleVibrate(period: 1500, amplitude: 200);
@@ -277,6 +542,7 @@ class _HomepageState extends State<Homepage> {
       await Future.delayed(Duration(seconds: 2));
       await fetchprofilephoto();
       await fetchusernames();
+      await fetchfollowers();
       await fetchImages();
       await fetchcaptions();
       await fetchInitialLikeStatus();
@@ -284,6 +550,8 @@ class _HomepageState extends State<Homepage> {
       await fetchverifications();
       await fetchstoryseen();
       await fetchusername();
+      await fetchStories();
+      await getStoryUsernames();
     }
   }
   bool _uploading = false;
@@ -309,7 +577,10 @@ class _HomepageState extends State<Homepage> {
       print('Error fetching initial like status: $e');
     }
   }
+  Future<void> sendlike()async{
 
+  }
+  List<bool> likedstory=[];
   Future<void> fetchprofilephoto() async {
     try {
       DocumentSnapshot documentSnapshot = await _firestore
@@ -326,9 +597,13 @@ class _HomepageState extends State<Homepage> {
             profilephotos = posts
                 .map((post) => post['profile photo'].toString())
                 .toList();
+
+            // Initialize likedstory with false values
+
           });
         }
       }
+
     } catch (e) {
       print('Error fetching profile photo: $e');
     }
@@ -357,6 +632,47 @@ class _HomepageState extends State<Homepage> {
       print('Error fetching profile photo: $e');
     }
   }
+  List<String> likedUidsList = [];
+  bool liked=false;
+  List<bool> likedStory =[];
+  Future<void> fetchLikedUids() async {
+    QuerySnapshot querySnapshot =
+    await FirebaseFirestore.instance.collection('Stories Liked').get();
+
+    querySnapshot.docs.forEach((doc) {
+      // Explicitly cast doc.data() to Map<String, dynamic>
+      Map<String, dynamic>? data = doc.data() as Map<String, dynamic>?;
+
+      // Check if 'likes' field exists and is a List
+      if (data != null &&
+          data.containsKey('likes') &&
+          data['likes'] is List) {
+        List<dynamic>? likes = data['likes'];
+
+        likes?.forEach((like) {
+          if (like != null && like['liked uid'] != null) {
+            likedUidsList.add(like['liked uid']);
+          }
+        });
+      }
+    });
+
+    print('liked list $likedUidsList');
+
+    final user = _auth.currentUser;
+
+    // Wait for the for loop to complete before moving forward
+    for (int i = 0; i < likedUidsList.length; i++) {
+      if (likedUidsList[i] == user!.uid) {
+        likedstory[i] = true;
+      }
+    }
+
+    print('Liked UIDs List: $likedUidsList');
+    print('Liked by: $likedstory');
+
+  }
+
 
   Future<void> fetchusernames() async {
     try {
@@ -426,6 +742,7 @@ class _HomepageState extends State<Homepage> {
       print('Error fetching images: $e');
     }
   }
+  List<String> storyLinks = [];
 
   Future<void> updateFirestoreLikedUsers(
       int index, List<String> newLikedUsers) async {
@@ -462,14 +779,30 @@ class _HomepageState extends State<Homepage> {
       print('Error updating Firestore: $e');
     }
   }
-
+  ScrollController _scrollController = ScrollController();
+  bool likeIconVisible = false;
+  int clickedImageIndex = -1;
   void updateUIWithLikedUsersCount(int index, int count) {
     setState(() {
       likedUsers[index] = likedUsers[index] ?? [];
       likedUsers[index].length = count;
     });
   }
-
+  String usernameofuser = 'Loading';
+  Future<void> fetchusernameofuser() async {
+    final user = _auth.currentUser;
+    try {
+      final docsnap =
+      await _firestore.collection('User Details').doc(user!.uid).get();
+      if (docsnap.exists) {
+        setState(() {
+          usernameofuser = docsnap.data()?['user name'];
+        });
+      }
+    } catch (e) {
+      print(e);
+    }
+  }
   Future<void> ShowDialogue() async {
     showDialog(
       context: context,
@@ -485,7 +818,6 @@ class _HomepageState extends State<Homepage> {
       },
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final String currentUserUid = _auth.currentUser?.uid ?? '';
@@ -494,6 +826,9 @@ class _HomepageState extends State<Homepage> {
       backgroundColor: Colors.black,
       floatingActionButton: FloatingActionButton(
         onPressed: () {
+          for(int i=0;i<documentNames.length;i++){
+            print(documentNames[i]);
+          }
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => support_sections()),
@@ -509,112 +844,99 @@ class _HomepageState extends State<Homepage> {
           '𝕱𝖔𝖙𝖔𝕱𝖚𝖘𝖎𝖔𝖓',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(onPressed: (){
+            Navigator.push(context, MaterialPageRoute(builder: (context) => Notifications(),));
+          }, icon: Icon(Icons.notifications_active,color: Colors.white,)),
+          IconButton(onPressed: (){}, icon: Icon(Icons.message,color: CupertinoColors.white,))
+        ],
       ),
       body: SingleChildScrollView(
+        physics: BouncingScrollPhysics(decelerationRate: ScrollDecelerationRate.fast),
         child: Column(
           children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (int i = 0; i < storyLinks.length && i < usernamearray.length; i++)
+                    ...[
+                      SizedBox(
+                        width: 20,
+                      ),
+                      InkWell(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) {
+                              return AlertDialog(
+                                backgroundColor: Colors.black,
+                                actions:[
+                                  Column(
+                                    children: [
+                                      SizedBox(
+                                        height: 10,
+                                      ),
+                                      Row(
+                                        children: [
+                                          Text(usernamearray[i],style: TextStyle(color: Colors.white,fontSize: 15,fontWeight: FontWeight.bold),),
+                                        SizedBox(
+                                          width: 5,
+                                        ),
+                                          if(verifs[i]==true)
+                                          Image.network(
+                                            'https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
+                                            height: 30,
+                                            width: 30,
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(
+                                        height: 20,
+                                      ),
+                                      InstaImageViewer(
+                                        child: Image(
+                                          image: NetworkImage(storyLinks[i]),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                ]
+                              );
+                            },
+                          );
+                        },
+                        child: Column(
+                          children: [
+                            CircleAvatar(
+                              radius: 40,
+                              backgroundImage: NetworkImage(storyLinks[i]),
+                            ),
+                            SizedBox(
+                              height: 10,
+                            ),
+                            Text(
+                              usernamearray[i],
+                              style: TextStyle(color: Colors.white,fontSize: 13,fontWeight: FontWeight.bold),
+                            ),
+
+                          ],
+                        ),
+                      ),
+                    ],
+                ],
+              ),
+            ),
             SizedBox(height: 20),
             Row(
               children: [
                 SizedBox(
                   width: 20,
                 ),
-                InkWell(
-                  onTap: () async {
-                    writestoryseen();
-                    if (storyurl != null) {
-                      showDialog(
-                        context: context,
-                        builder: (context) {
-                          return AlertDialog(
-                            backgroundColor: Colors.black,
-                            actions: [
-                              InstaImageViewer(
-                                child: Image(
-                                  image: storyurl != null
-                                      ? Image.network(storyurl!).image
-                                      : AssetImage('assets/placeholder_image.png'), // Replace with your placeholder image
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                    }
-                  },
-                  child: _uploading
-                      ? CircularProgressIndicator(
-                    color: Colors.red,
-                  )
-                      : _imageUrl == null
-                      ? Column(
-                    children: [
-                      ClipOval(
-                        child: Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 3,
-                            ),
-                          ),
-                          child: Image.network(
-                            'https://firebasestorage.googleapis.com/v0/'
-                                'b/fotofusion-53943.appspot.com/o/profile%2'
-                                '0pics.jpg?alt=media&token=17bc6fff-cfe9-4f2d-9'
-                                'a8c-18d2a5636671',
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        height: 5,
-                      ),
-                      Text(
-                        username ?? '',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w300,
-                          fontSize: 12,
-                        ),
-                      )
-                    ],
-                  )
-                      : Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: (storyuploaded && !storyseen)
-                            ? Colors.green
-                            : (storyuploaded && storyseen)
-                            ? Colors.grey
-                            : Colors.red,
-                        width: 3,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        ClipOval(
-                          child: _imageUrl != null
-                              ? Image.network(
-                            _imageUrl!,
-                            fit: BoxFit.cover,
-                          )
-                              : CircularProgressIndicator(color: Colors.white,) // Handle the case when _imageUrl is null
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
               ],
             ),
             SizedBox(
-              height: 20,
+              height: 40,
             ),
             Column(
               children: List.generate(
@@ -641,25 +963,43 @@ class _HomepageState extends State<Homepage> {
                                 ),
                               ),
                               SizedBox(
-                                width: 10,
+                                width: 5,
                               ),
-                              Text(
+                              TextButton(onPressed: ()async{
+                                print('clicked $index');
+                                Navigator.push(context, MaterialPageRoute(builder: (context) => Searchresult(userid: uids[index]),));
+                              }, child: Text(
                                 usernames[index],
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
                                 ),
-                              ),
-                              SizedBox(
-                                width: 5,
-                              ),
+                              ),),
                               if (verification.isNotEmpty && verification[index] == 'true')
                                 Image.network(
                                   'https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
                                   height: 30,
                                   width: 30,
                                 ),
+                              SizedBox(
+                                width: 1,
+                              ),
+                              if(follow[index]=='true')
+                                ElevatedButton(onPressed: (){},
+                                    child: Text('Followed',style: TextStyle(color: Colors.white,fontWeight: FontWeight.w500),),
+                                    style: ButtonStyle(
+                                        backgroundColor: MaterialStatePropertyAll(Colors.black)
+                                    ),
+                                  ),
+
+                              if(follow[index]=='false')
+                                ElevatedButton(onPressed: (){},
+                                    child: Text('Follow',style: TextStyle(color: Colors.white,fontWeight: FontWeight.w500),),
+                                    style: ButtonStyle(
+                                        backgroundColor: MaterialStatePropertyAll(Colors.black)
+                                    ),
+                                  ),
                             ],
                           ),
                           if (locations.isNotEmpty)
@@ -681,21 +1021,58 @@ class _HomepageState extends State<Homepage> {
                       ),
 
                       SizedBox(height: 10),
-                      Image.network(
-                        imageUrls[index],
-                        height: 600,
-                        width: 600,
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade100),
+                        ),
+                        child: Stack(
+                          children: [
+                            GestureDetector(
+                              onDoubleTap: () async {
+                                showLikeIcon(index);
+                                print('index $index');
+                                List<String> currentLikedUsers = likedUsers[index];
+                                final bool userLiked = currentLikedUsers.contains(currentUserUid);
+
+                                if (userLiked) {
+                                  currentLikedUsers.remove(currentUserUid);
+                                } else {
+                                  currentLikedUsers.add(currentUserUid);
+                                }
+
+                                await updateFirestoreLikedUsers(index, currentLikedUsers);
+                              },
+                              child: ProgressiveImage(
+                                width: 350.0,
+                                baseColor: Colors.grey.shade900,
+                                highlightColor: Colors.white,
+                                imageError: 'Failed To Load Image',
+                                image: imageUrls[index],
+                                height: 400.0,
+                              ),
+                            ),
+                            Visibility(
+                              visible: likeIconVisible,
+                              child: likeIcon(index),
+                            ),
+                          ],
+                        ),
                       ),
                       SizedBox(height: 10),
                       Row(
                         children: [
                           SizedBox(width: 10),
-                          Text(
-                            usernames[index],
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
+                          InkWell(
+                            onTap: (){
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => Searchresult(userid: uids[index]),));
+                            },
+                            child: Text(
+                              usernames[index],
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                           SizedBox(width: 10),
@@ -718,6 +1095,7 @@ class _HomepageState extends State<Homepage> {
                           ),
                           IconButton(
                             onPressed: () async {
+                              showLikeIcon(index);
                               List<String> currentLikedUsers =
                               likedUsers[index];
                               final bool userLiked =
@@ -800,5 +1178,30 @@ class _HomepageState extends State<Homepage> {
     );
   }
 
+  void showLikeIcon(int pressedindex) {
+    setState(() {
+      likeIconVisible = true;
+    });
+
+    Timer(Duration(seconds: 1), () {
+      setState(() {
+        likeIconVisible = false;
+      });
+    });
+  }
+
+  Widget likeIcon(int index) {
+    return Positioned(
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: Icon(
+        Icons.favorite,
+        color: Colors.white,
+        size: 80.0, // Adjust the size as needed
+      ),
+    );
+  }
 }
 

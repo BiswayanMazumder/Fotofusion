@@ -1,3 +1,8 @@
+import 'package:fotofusion/Dashboards/dashboard.dart';
+import 'package:fotofusion/Searches/search_result.dart';
+import 'package:fotofusion/posts/subscriber_specific.dart';
+import 'package:fotofusion/settings/settingspage.dart';
+import 'package:fotofusion/Subscribers_only/subs_special.dart';
 import 'package:insta_image_viewer/insta_image_viewer.dart';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -47,6 +52,20 @@ class _Account_pageState extends State<Account_page> {
     }catch(e){
       print("Error getting story: $e");
     }
+  }
+  bool isprofessional=false;
+  Future<void> fetchprofessional()async{
+    final user=_auth.currentUser;
+    if(user!=null){
+      final docsnap=await _firestore.collection('Professional Mode').doc(user.uid).get();
+      if(docsnap.exists){
+        setState(() {
+          isprofessional=docsnap.data()?['Mode On/Off'];
+        });
+      }
+
+    }
+    print('is proffesional $isprofessional');
   }
   Future<void> _loadProfilePicture() async {
     final user = _auth.currentUser;
@@ -196,14 +215,40 @@ class _Account_pageState extends State<Account_page> {
     while (true) {
       await Future.delayed(Duration(seconds: 2));
       fetchImages();
+      fetchaccountviewers();
+      fetchprofessional();
       fetchfollowerscount();
       fetchfollowing();
       fetchverification();
       _loadstory();
       fetchstoryseen();
+      fetchfollowers();
+      fetchfollowings();
     }
   }
+  List<String> subsurls=[];
+  Future<void>fetchsubsurls() async{
+    final user = _auth.currentUser;
 
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('Subscriber Specific')
+          .doc(user?.uid)
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['posts'] as List?) ?? [];
+          setState(() {
+            subsurls = posts.map((post) => post['imageUrl'].toString()).toList();
+          });
+        }
+      }
+    } catch (e) {
+      print('Error fetching images: $e');
+    }
+  }
   Future<void> fetchImages() async {
     final user = _auth.currentUser;
 
@@ -224,6 +269,16 @@ class _Account_pageState extends State<Account_page> {
       }
     } catch (e) {
       print('Error fetching images: $e');
+    }
+  }
+  int viewers=0;
+  Future<void> fetchaccountviewers()async{
+    final user=_auth.currentUser;
+    final docsnap=await _firestore.collection('Account Viewers').doc(user!.uid).get();
+    if(docsnap.exists){
+      setState(() {
+        viewers=docsnap.data()?['Viewers'];
+      });
     }
   }
   List<String> reelsurls=[];
@@ -265,23 +320,156 @@ class _Account_pageState extends State<Account_page> {
     }
     print('Story seen $storyseen');
   }
+  List<String> followings=[];
+  Future<void> fetchfollowings() async {
+    final user = _auth.currentUser;
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('Following')
+          .doc(user?.uid)
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['Followers'] as List?) ?? [];
+          setState(() {
+            followings =
+                posts.map((post) => post['followerUid'].toString()).toList();
+          });
+        }
+      }
+      print('following $followings');
+    } catch (e) {
+      print('Error fetching followers fetchfollowers: $e');
+    }
+
+  }
+  List<String> followers=[];
+  Future<void> fetchfollowers() async {
+    final user = _auth.currentUser;
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('Followers')
+          .doc(user?.uid)
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['Followers'] as List?) ?? [];
+          setState(() {
+            followers =
+                posts.map((post) => post['followerUid'].toString()).toList();
+          });
+        }
+      }
+      print('followers $followers');
+    } catch (e) {
+      print('Error fetching followers fetchfollowers: $e');
+    }
+
+  }
   @override
   void initState() {
     super.initState();
+    fetchprofessional();
+    fetchstoryseen();
     fetchusername();
+    fetchsubsurls();
     fetchbio();
     _loadProfilePicture();
     fetchlink();
+    fetchfollowing();
     fetchpostscount();
     updateImagesPeriodically();
+    fetchaccountviewers();
     fetchfollowerscount();
-    fetchfollowing();
+    fetchfollowings();
+    fetchfollowers();
     fetchverification();
     fetchreels();
     _loadstory();
     fetchstoryseen();
+    fetchAllUserIds();
+  }
+  List<String> usernames = [];
+  List<bool> verificationStatuses = [];
+  List<String> profileurls=[];
+  Future<void> fetchAllUserIds() async {
+    final user=_auth.currentUser;
+    try {
+      final snapshot = await _firestore.collection('Story Seen').doc(user!.uid).get();
+
+      if (snapshot.exists) {
+        List<String> userIds = [];
+        final seenData = snapshot.data()?['Seen'];
+
+        if (seenData is List) {
+          for (var userMap in seenData) {
+            if (userMap is Map && userMap.containsKey('user id')) {
+              String userId = userMap['user id'];
+              userIds.add(userId);
+            }
+          }
+        }
+
+        // Now userIds list contains all the user IDs stored in the 'Story Seen' collection
+        // You can use this list to fetch usernames and verification statuses
+        fetchUserDetails(userIds);
+      }
+    } catch (e) {
+      print(e);
+    }
   }
 
+  Future<void> fetchUserDetails(List<String> userIds) async {
+    for (String userId in userIds) {
+      try {
+        // Fetch username
+        final usernameDoc =
+        await _firestore.collection('User Details').doc(userId).get();
+        if (usernameDoc.exists) {
+          setState(() {
+            String username = usernameDoc.data()?['user names'] ?? '';
+            usernames.add(username);
+          });
+        }
+        //fetch profile picture
+        final profilepicdoc =
+        await _firestore.collection('profile_pictures').doc(userId).get();
+        if (profilepicdoc.exists) {
+          setState(() {
+            String urls = profilepicdoc.data()?['url_user1'] ?? '';
+            profileurls.add(urls);
+          });
+        }
+        else{
+          setState(() {
+            profileurls.add('https://images.pexels.com/photos/19861151/pexels-photo-1986115'
+                '1/free-photo-of-a-mountain-stream-is-flowing-through-a-forest.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1');
+          });
+        }
+        // Fetch verification status
+        final verificationDoc =
+        await _firestore.collection('Verifications').doc(userId).get();
+        if (verificationDoc.exists) {
+          setState(() {
+            bool isVerified = verificationDoc.data()?['isverified'] ?? false;
+            verificationStatuses.add(isVerified);
+          });
+        }
+        print('usernames length: ${usernames.length}');
+        print('verificationStatuses length: ${verificationStatuses.length}');
+        print('profileurls length: ${profileurls.length}');
+
+      } catch (e) {
+        print(e);
+      }
+    }
+    // After fetching all data, trigger a UI update
+    setState(() {});
+  }
   Future<void> _launchURl() async {
     final user = _auth.currentUser;
     try {
@@ -294,7 +482,6 @@ class _Account_pageState extends State<Account_page> {
       print('Error launching URL: $e');
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -417,6 +604,15 @@ class _Account_pageState extends State<Account_page> {
                             fontSize: 15
                         ),)),
                       ),
+                      Center(
+                        child: TextButton(onPressed: (){
+                          Navigator.pop(context);
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => Subscriber_specific(),));
+                        }, child: Text('Upload Subscriber Specific',style: TextStyle(color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15
+                        ),)),
+                      ),
                     ],
                   );
                 },);
@@ -438,18 +634,145 @@ class _Account_pageState extends State<Account_page> {
                 ),
         InkWell(
           onTap: () async {
+            print('usernames length: ${usernames.length}');
+            print('verificationStatuses length: ${verificationStatuses.length}');
+            print('profileurls length: ${profileurls.length}');
             writestoryseen();
             if (storyurl != null) {
               showDialog(
                 context: context,
                 builder: (context) {
                   return AlertDialog(
+                    scrollable: true,
                     backgroundColor: Colors.black,
                     actions: [
-                      InstaImageViewer(
-                        child: Image(
-                          image: Image.network(storyurl!).image,
-                        ),
+                      Column(
+                        children: [
+                          SizedBox(
+                            height: 10,
+                          ),
+                          Row(
+                            children: [
+                              Text(username!,style: TextStyle(color: Colors.white,fontSize: 15,fontWeight: FontWeight.w600),),
+                              SizedBox(
+                                width: 5,
+                              ),
+                              if(isverified)
+                                Image.network('https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
+                                  height: 25,
+                                  width: 25,
+                                )
+                            ],
+                          ),
+                          SizedBox(
+                            height: 15,
+                          ),
+                          InstaImageViewer(
+                            child: Image(
+                              image: Image.network(storyurl!).image,
+                            ),
+                          ),
+                          SizedBox(
+                            height: 20,
+                          ),
+                          Row(
+                            children: [
+                              Column(
+                                children: [
+                                  Icon(CupertinoIcons.eye,color: Colors.white,),
+                                  InkWell(
+                                    onTap: (){
+
+                                      Navigator.pop(context);
+                                      if(usernames.length==0)
+                                        showDialog(context: context, builder: (context) {
+                                          return AlertDialog(
+                                            backgroundColor: Colors.black,
+                                            content: Center(child: Text('No Viewers',style: TextStyle(color: Colors.white,
+                                            fontWeight: FontWeight.bold
+                                            ),)),
+                                          );
+                                        },);
+                                      if(usernames.length>0)
+                                        showDialog(context: context, builder: (context) {
+                                          return AlertDialog(
+                                            backgroundColor: Colors.black,
+                                            actions: [
+                                              Column(
+                                                children: [
+                                                  for (int i = 0; i < usernames.length; i++)
+                                                    Column(
+                                                      children: [
+                                                        Row(
+                                                          children: [
+                                                            // Profile pictures (CircleAvatar)
+                                                            CircleAvatar(
+                                                              backgroundImage: NetworkImage(profileurls[i]),
+                                                              radius: 20,
+                                                            ),
+                                                            SizedBox(width: 10), // Adjust the width for spacing between profile picture and text
+                                                            InkWell(
+                                                              onTap: () async {
+                                                                for(int j=0;j<usernames.length;j++){
+                                                                  QuerySnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance
+                                                                      .collection('User Details')
+                                                                      .where('user name', isEqualTo: usernames[j]) // Use isEqualTo for exact match
+                                                                      .get();
+
+                                                                  if (snapshot.docs.isNotEmpty) {
+                                                                    String userId = snapshot.docs.first.id; // Use the first document as there should be a unique match
+                                                                    print('User id for ${usernames[j]}: $userId');
+
+                                                                    // Now you can use the userId as needed, for example, navigate to a new screen
+                                                                    Navigator.push(
+                                                                      context,
+                                                                      MaterialPageRoute(builder: (context) => Searchresult(userid: userId)),
+                                                                    );
+                                                                  } else {
+                                                                    print('No matching user found for ${usernames[i]}');
+                                                                  }
+                                                                }
+
+                                                              },
+                                                              child: Text(
+                                                                usernames[i],
+                                                                style: TextStyle(
+                                                                  color: Colors.white,
+                                                                  fontWeight: FontWeight.w300,
+                                                                ),
+                                                              ),
+                                                            ),
+
+
+                                                            if (verificationStatuses[i] == true)
+                                                              Image.network(
+                                                                'https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
+                                                                height: 20,
+                                                                width: 20,
+                                                              ),
+                                                          ],
+                                                        ),
+                                                        if (i < usernames.length - 1) // Add a SizedBox after each Row except the last one
+                                                          SizedBox(
+                                                            height: 20, // Adjust the height based on your preference
+                                                          ),
+                                                      ],
+                                                    ),
+                                                ],
+                                              )
+
+
+                                            ],
+                                          );
+                                      },);
+                                    },
+                                    child: Text('Seen by ${usernames.length}',style: TextStyle(color: Colors.white,fontWeight: FontWeight.w500),),
+                                  )
+                                ],
+                              )
+                            ],
+                          )
+                        ],
                       ),
                     ],
                   );
@@ -548,10 +871,10 @@ class _Account_pageState extends State<Account_page> {
                         onTap: (){
                           Navigator.push(context, MaterialPageRoute(builder: (context) => Followers(),));
                         },
-                        child: Text('$followerscount',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),)),
-                    if(followerscount<=1)
+                        child: Text('${followers.length}',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),)),
+                    if(followers.length<=1)
                       Text('Follower',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
-                    if(followerscount>1)
+                    if(followers.length>1)
                       Text('Followers',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),)
                   ],
                 ),
@@ -563,10 +886,10 @@ class _Account_pageState extends State<Account_page> {
                     SizedBox(
                       height: 1,
                     ),
-                    Text('$following',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
-                    if(following<=1)
+                    Text('${followings.length}',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
+                    if(followings.length<=1)
                       Text('Following',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
-                    if(following>1)
+                    if(followings.length>1)
                       Text('Following',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),)
                   ],
                 ),
@@ -620,6 +943,57 @@ class _Account_pageState extends State<Account_page> {
                 ),
               ],
             ),
+            isprofessional?Container(
+              width: 350, // Adjust the width as needed
+              height: 90, // Adjust the height as needed
+              color: Colors.grey.shade900,
+              child: Center(
+                  child: ElevatedButton(onPressed: (){
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => Dashboard(),));
+                  },
+                    style: ButtonStyle(
+                      elevation: MaterialStatePropertyAll(0),
+                        backgroundColor: MaterialStatePropertyAll(Colors.grey.shade900)
+                    ),
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          height: 15,
+                        ),
+                        Row(
+                          children: [
+                            Text('Professional Dashboard',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),),
+                          ],
+                        ),
+                        SizedBox(
+                          height: 10,
+                        ),
+                        Row(
+                          children: [
+                            if(viewers==0)
+                              Text('No accounts reached in 30 days',style: TextStyle(color: Colors.white,
+                                  fontWeight: FontWeight.w300,
+                                  fontSize: 12
+                              ),),
+                            if(viewers==1)
+                              Text('$viewers account reached in 30 days',style: TextStyle(color: Colors.white,
+                                  fontWeight: FontWeight.w300,
+                                  fontSize: 12
+                              ),),
+                            if(viewers>1)
+                              Text('$viewers accounts reached in 30 days',style: TextStyle(color: Colors.white,
+                                  fontWeight: FontWeight.w300,
+                                  fontSize: 12
+                              ),),
+                          ],
+                        )
+                      ],
+                    ),)
+              ),
+            ):Container(),
+            SizedBox(
+              height: 10,
+            ),
             Row(
               children: [
                 SizedBox(
@@ -650,12 +1024,12 @@ class _Account_pageState extends State<Account_page> {
                   alignment: Alignment.topRight,
                   child: ElevatedButton(
                     onPressed: () {
-                      // Navigator.push(context, MaterialPageRoute(builder: (context) => Homepage()));
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => Settings_page()));
                     },
                     style: ButtonStyle(
                         backgroundColor: MaterialStatePropertyAll(
                             Colors.grey[900])),
-                    child: Text(
+                    child: const Text(
                       '          Settings          ',
                       style: TextStyle(color: Colors.white),
                     ),
@@ -667,20 +1041,35 @@ class _Account_pageState extends State<Account_page> {
               height: 20,
             ),
             Row(
+              mainAxisAlignment: MainAxisAlignment.center, // Center aligns the children
               children: [
-                SizedBox(
-                  width: 110,
+                IconButton(
+                  onPressed: () {},
+                  icon: Icon(CupertinoIcons.photo, color: Colors.white),
                 ),
-                IconButton(onPressed: (){}, icon: Icon(CupertinoIcons.photo,color: Colors.white,)),
                 SizedBox(
-                  width: 80,
+                  width: 30,
                 ),
-                if(reelsurls.length>0)
-                  IconButton(onPressed: (){
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => Reelpage_account()));
-                  }, icon: Icon(Icons.movie,color: Colors.grey,)),
+                if (reelsurls.length > 0)
+                  IconButton(
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => Reelpage_account()));
+                    },
+                    icon: Icon(Icons.movie, color: Colors.grey),
+                  ),
+                SizedBox(
+                  width: 30,
+                ),
+                if(subsurls.length>0)
+                  IconButton(
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => subs_special(),));
+                    },
+                    icon: Icon(Icons.star_outline, color: Colors.grey),
+                  ),
               ],
             ),
+
 
             for (int i = 0; i < imageUrls.length; i += 2)
               Column(
@@ -692,6 +1081,41 @@ class _Account_pageState extends State<Account_page> {
                       SizedBox(width: 20),
                       if (i < imageUrls.length)
                         ElevatedButton(
+                          onLongPress: (){
+                            print('hii');
+                            showDialog(context: context, builder: (context) {
+                              return AlertDialog(
+                                backgroundColor: Colors.black,
+                                actions: [
+                              Center(
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(username,style: TextStyle(color: Colors.white,fontSize: 15,fontWeight: FontWeight.bold),),
+                                        SizedBox(
+                                          width: 5,
+                                        ),
+                                        if(isverified)
+                                          Image.network(
+                                            'https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
+                                            height: 30,
+                                            width: 30,
+                                          ),
+                                      ],
+                                    ),
+                                    InstaImageViewer(
+                                    child: Image.network(imageUrls[i],
+                                      width: 500,
+                                      height: 500,)
+                                    ),
+                                  ],
+                                ),
+                              )
+                                ],
+                              );
+                            },);
+                          },
                           onPressed: () {
                             Navigator.push(
                               context,
@@ -713,6 +1137,44 @@ class _Account_pageState extends State<Account_page> {
                       SizedBox(width: 10),
                       if (i + 1 < imageUrls.length)
                         ElevatedButton(
+                          onLongPress: (){
+                            showDialog(context: context, builder: (context) {
+                              return AlertDialog(
+                                backgroundColor: Colors.black,
+                                actions: [
+                                  Center(
+                                    child: Column(
+                                      children: [
+                                        Column(
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Text(username,style: TextStyle(color: Colors.white,fontSize: 15,fontWeight: FontWeight.bold),),
+                                                SizedBox(
+                                                  width: 5,
+                                                ),
+                                                if(isverified==true)
+                                                  Image.network(
+                                                    'https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
+                                                    height: 30,
+                                                    width: 30,
+                                                  ),
+                                              ],
+                                            ),
+                                            InstaImageViewer(
+                                                child: Image.network(imageUrls[i+1],
+                                                  width: 500,
+                                                  height: 500,)
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                ],
+                              );
+                            },);
+                          },
                           onPressed: () {
                             Navigator.push(
                               context,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fotofusion/Reels%20page/reel.dart';
 import 'package:fotofusion/account%20page/user_account.dart';
 import 'package:fotofusion/navbar_Post_page.dart';
 import 'package:fotofusion/pages/explore.dart';
@@ -28,7 +29,7 @@ class _NavBarState extends State<NavBar> {
   final List screens=[
     Homepage(),
     Search(),
-    postpagenavbar(),
+    reels_account(),
     Account_page(),
   ];
   @override
@@ -67,7 +68,7 @@ class _NavBarState extends State<NavBar> {
               rippleColor: Colors.green,
               backgroundColor: Colors.cyan,
             ),
-            GButton(icon: Icons.add,text: 'Upload',
+            GButton(icon: Icons.movie_filter_outlined,text: 'Reels',
               backgroundColor: Colors.lightGreenAccent,
             ),
             GButton(icon: Icons.person,text: 'Profile',

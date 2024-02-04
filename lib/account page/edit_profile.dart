@@ -81,6 +81,10 @@ class _EditprofileState extends State<Editprofile> {
         await user.updateProfile(photoURL: imageUrl);
 
         // Store the URL in Firestore
+        await _firestore.collection('profile_pictures').doc(user.uid).set({
+          'url_user1': imageUrl,
+          'time stamp': FieldValue.serverTimestamp(),
+        });
         await _firestore.collection('User Details').doc(user.uid).update({
           'url_user1': imageUrl,
           'time stamp': FieldValue.serverTimestamp(),
