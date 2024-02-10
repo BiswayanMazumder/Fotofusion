@@ -1,10 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:fotofusion/Chatbots/chatbot.dart';
 import 'package:fotofusion/Notifications/notifications.dart';
 import 'package:fotofusion/Searches/search_result.dart';
 import 'package:fotofusion/account%20page/comment_page.dart';
+import 'package:fotofusion/messages/messaging_page.dart';
 import 'package:fotofusion/pages/homepage.dart';
 import 'package:insta_image_viewer/insta_image_viewer.dart';
 import 'package:fotofusion/pages/report_page.dart';
@@ -76,6 +80,7 @@ class _HomepageState extends State<Homepage> {
     }
     print('isverified $isverified');
   }
+  
   String? storyurl;
   bool storyuploaded=false;
   Future<void> _loadstory()async{
@@ -309,6 +314,30 @@ class _HomepageState extends State<Homepage> {
       print('Error fetching stories: $e');
     }
   }
+  List<String>bodystoryurl=[];
+  List<bool> havestory=[];
+  Future<void> dpstoryurl() async{
+    await fetchuids();
+    for(String Uids in uids)
+    {
+      try{
+        final docsnap=await _firestore.collection('Story').doc(Uids).get();
+        if(docsnap.exists){
+          setState(() {
+            String urls=docsnap.data()?['story'];
+            bodystoryurl.add(urls);
+            havestory.add(true);
+          });
+        }else{
+          havestory.add(false);
+        }
+        print('body story $bodystoryurl ,  length ${bodystoryurl.length}');
+        print('body story uploaded $havestory');
+      }catch(e){
+        print('error in body story $e');
+      }
+    }
+  }
   List<String> uids=[];
   Future<void> fetchuids() async {
     final user = _auth.currentUser;
@@ -333,6 +362,31 @@ class _HomepageState extends State<Homepage> {
     } catch (e) {
       print('Error fetching uid: $e');
     }
+  }
+  List<bool> isverifiedd=[];
+  List<String> usernamesss=[];
+  Future<void> fetchusernamereal() async{
+    await fetchuids();
+    for(String Uid in uids){
+      final docsnap=await _firestore.collection('User Details').doc(Uid).get();
+      if(docsnap.exists){
+        setState(() {
+          String names=docsnap.data()?['user name'];
+          usernamesss.add(names);
+        });
+      }
+      final docs=await _firestore.collection('Verifications').doc(Uid).get();
+      if(docs.exists){
+        setState(() {
+          bool verified=docs.data()?['isverified'];
+          isverifiedd.add(verified);
+        });
+      }
+      else{
+        isverifiedd.add(false);
+      }
+    }
+    print('fetched names $usernamesss  ,   verified $isverifiedd');
   }
   List<String> followers=[];
   List<String> follow=[];
@@ -375,11 +429,28 @@ class _HomepageState extends State<Homepage> {
       print('Error fetching followers: $e');
     }
   }
+  Future<void>fetchipaddress() async{
+    final response = await http.get(Uri.parse('https://ipinfo.io/json'));
+    if(response.statusCode==200){
+      Map<String, dynamic> data = json.decode(response.body);
+      String ip = data['ip'];
+      final user=_auth.currentUser;
+      await _firestore.collection('User IP').doc(user!.uid).set({
+        'IP Address':FieldValue.arrayUnion([
+          ip
+        ])
+      }, SetOptions(merge: true));
+    }
+  }
   @override
   void initState() {
     super.initState();
     fetchfollowers();
+    fetchipaddress();
     fetchuids();
+    dpstoryurl();
+    fetchusernamereal();
+    fetchprofilephotostory();
     initializeNumberOfPosts();
     fetchusernameofuser();
     fetchStories();
@@ -431,7 +502,6 @@ class _HomepageState extends State<Homepage> {
                         height: 20,
                       ),
                       ElevatedButton(onPressed: (){
-
                       },
                           style: ButtonStyle(
                               backgroundColor: MaterialStatePropertyAll(Colors.grey[900])
@@ -542,7 +612,6 @@ class _HomepageState extends State<Homepage> {
       await Future.delayed(Duration(seconds: 2));
       await fetchprofilephoto();
       await fetchusernames();
-      await fetchfollowers();
       await fetchImages();
       await fetchcaptions();
       await fetchInitialLikeStatus();
@@ -551,7 +620,6 @@ class _HomepageState extends State<Homepage> {
       await fetchstoryseen();
       await fetchusername();
       await fetchStories();
-      await getStoryUsernames();
     }
   }
   bool _uploading = false;
@@ -577,8 +645,18 @@ class _HomepageState extends State<Homepage> {
       print('Error fetching initial like status: $e');
     }
   }
-  Future<void> sendlike()async{
-
+  List<String> storydp=[];
+  Future<void> fetchprofilephotostory() async{
+    await getStoryUsernames();
+    for(String Uidd in documentNames)
+    {
+      final docsnap=await _firestore.collection('profile_pictures').doc(Uidd).get();
+      if(docsnap.exists){
+        String urls=docsnap.data()?['url_user1'];
+        storydp.add(urls);
+      }
+    }
+    print('Story url $storydp');
   }
   List<bool> likedstory=[];
   Future<void> fetchprofilephoto() async {
@@ -779,7 +857,7 @@ class _HomepageState extends State<Homepage> {
       print('Error updating Firestore: $e');
     }
   }
-  ScrollController _scrollController = ScrollController();
+  ScrollController scrollController = ScrollController();
   bool likeIconVisible = false;
   int clickedImageIndex = -1;
   void updateUIWithLikedUsersCount(int index, int count) {
@@ -848,191 +926,305 @@ class _HomepageState extends State<Homepage> {
           IconButton(onPressed: (){
             Navigator.push(context, MaterialPageRoute(builder: (context) => Notifications(),));
           }, icon: Icon(Icons.notifications_active,color: Colors.white,)),
-          IconButton(onPressed: (){}, icon: Icon(Icons.message,color: CupertinoColors.white,))
         ],
       ),
-      body: SingleChildScrollView(
-        physics: BouncingScrollPhysics(decelerationRate: ScrollDecelerationRate.fast),
-        child: Column(
-          children: [
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (int i = 0; i < storyLinks.length && i < usernamearray.length; i++)
-                    ...[
-                      SizedBox(
-                        width: 20,
-                      ),
-                      InkWell(
-                        onTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) {
-                              return AlertDialog(
-                                backgroundColor: Colors.black,
-                                actions:[
-                                  Column(
-                                    children: [
-                                      SizedBox(
-                                        height: 10,
-                                      ),
-                                      Row(
-                                        children: [
-                                          Text(usernamearray[i],style: TextStyle(color: Colors.white,fontSize: 15,fontWeight: FontWeight.bold),),
-                                        SizedBox(
-                                          width: 5,
-                                        ),
-                                          if(verifs[i]==true)
-                                          Image.network(
-                                            'https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
-                                            height: 30,
-                                            width: 30,
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(
-                                        height: 20,
-                                      ),
-                                      InstaImageViewer(
-                                        child: Image(
-                                          image: NetworkImage(storyLinks[i]),
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                ]
-                              );
-                            },
-                          );
-                        },
-                        child: Column(
-                          children: [
-                            CircleAvatar(
-                              radius: 40,
-                              backgroundImage: NetworkImage(storyLinks[i]),
-                            ),
-                            SizedBox(
-                              height: 10,
-                            ),
-                            Text(
-                              usernamearray[i],
-                              style: TextStyle(color: Colors.white,fontSize: 13,fontWeight: FontWeight.bold),
-                            ),
-
-                          ],
+      body: LiquidPullToRefresh(
+        backgroundColor: Colors.white,
+        onRefresh: fetchStories,
+        child: SingleChildScrollView(
+          physics:BouncingScrollPhysics(decelerationRate: ScrollDecelerationRate.normal),
+          child: Column(
+            children: [
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    for (int i = 0; i < storyLinks.length && i < usernamearray.length; i++)
+                      ...[
+                        SizedBox(
+                          width: 20,
                         ),
-                      ),
-                    ],
+                        InkWell(
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) {
+                                return AlertDialog(
+                                  backgroundColor: Colors.black,
+                                  actions:[
+                                    Column(
+                                      children: [
+                                        SizedBox(
+                                          height: 10,
+                                        ),
+                                        Row(
+                                          children: [
+                                            TextButton(onPressed: (){
+                                            }, child: Text(usernamearray[i],style: TextStyle(color: Colors.white,fontSize: 15,fontWeight: FontWeight.bold),),),
+                                          SizedBox(
+                                            width: 5,
+                                          ),
+                                            if(verifs[i]==true)
+                                            Image.network(
+                                              'https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
+                                              height: 30,
+                                              width: 30,
+                                            ),
+                                          ],
+                                        ),
+                                        SizedBox(
+                                          height: 20,
+                                        ),
+                                        InstaImageViewer(
+                                          child: Image(
+                                            image: NetworkImage(storyLinks[i]),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  ]
+                                );
+                              },
+                            );
+                          },
+                          child: Column(
+                            children: [
+                              CircleAvatar(
+                                radius: 40,
+                                backgroundImage: NetworkImage(storyLinks[i]),
+                              ),
+                              SizedBox(
+                                height: 10,
+                              ),
+                              Text(
+                                usernamearray[i],
+                                style: TextStyle(color: Colors.white,fontSize: 13,fontWeight: FontWeight.bold),
+                              ),
+
+                            ],
+                          ),
+                        ),
+                      ],
+                  ],
+                ),
+              ),
+              SizedBox(height: 20),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 20,
+                  ),
                 ],
               ),
-            ),
-            SizedBox(height: 20),
-            Row(
-              children: [
-                SizedBox(
-                  width: 20,
-                ),
-              ],
-            ),
-            SizedBox(
-              height: 40,
-            ),
-            Column(
-              children: List.generate(
-                min(numberOfPosts, likedUsers.length),
-                    (index) {
-                  return Column(
-                    children: [
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              SizedBox(
-                                width: 20,
+              SizedBox(
+                height: 40,
+              ),
+              Column(
+                children: List.generate(
+                  min(numberOfPosts, likedUsers.length),
+                      (index) {
+                    return Column(
+                      children: [
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                ),
+                               InkWell(
+                                 child:  CircleAvatar(
+                                   radius: 20,
+                                   backgroundColor: Colors.black,
+                                   child: Image.network(
+                                     profilephotos[index],
+                                     height: 50,
+                                     width: 50,
+                                   ),
+                                 ),
+                               ),
+                                SizedBox(
+                                  width: 5,
+                                ),
+                                TextButton(onPressed: ()async{
+                                  print('clicked $index');
+                                  Navigator.push(context, MaterialPageRoute(builder: (context) => Searchresult(userid: uids[index]),));
+                                }, child: Text(
+                                  usernamesss[index],
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),),
+                                if (isverifiedd[index] == true)
+                                  Image.network(
+                                    'https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
+                                    height: 30,
+                                    width: 30,
+                                  ),
+                                if(follow[index]=='true')
+                                  ElevatedButton(onPressed: ()async{
+                                    final user=_auth.currentUser;
+                                    print('uid clicked ${uids[index]}');
+                                    await _firestore.collection('Followers').doc(uids[index]).set({
+                                      'Followers': FieldValue.arrayRemove([
+                                        {
+                                          'followerUid': user!.uid,
+                                        }
+                                      ]),
+                                    }, SetOptions(merge: true));
+                                    await _firestore.collection('Following').doc(user!.uid).set({
+                                      'Followers': FieldValue.arrayRemove([
+                                        {
+                                          'followerUid': uids[index],
+                                        }
+                                      ]),
+                                    }, SetOptions(merge: true));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Unfollowed Successfully'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  },
+                                      child: Text('Following',style: TextStyle(color: Colors.white,fontWeight: FontWeight.w500,fontSize: 15),),
+                                      style: ButtonStyle(
+                                          backgroundColor: MaterialStatePropertyAll(Colors.black)
+                                      ),
+                                    ),
+                                if(follow[index]=='false')
+                                  ElevatedButton(onPressed: ()async{
+                                    print('uid clicked ${uids[index]}');
+                                    final user=_auth.currentUser;
+                                    await _firestore.collection('Followers').doc(uids[index]).set({
+                                      'Followers': FieldValue.arrayUnion([
+                                        {
+                                          'followerUid': user!.uid,
+                                        }
+                                      ]),
+                                    }, SetOptions(merge: true));
+                                    await _firestore.collection('Following').doc(user!.uid).set({
+                                      'Followers': FieldValue.arrayUnion([
+                                        {
+                                          'followerUid': uids[index],
+                                        }
+                                      ]),
+                                    }, SetOptions(merge: true));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Followed Successfully'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  },
+                                      child: Text('Follow',style: TextStyle(color: Colors.white,fontWeight: FontWeight.w500,fontSize: 15),),
+                                      style: ButtonStyle(
+                                          backgroundColor: MaterialStatePropertyAll(Colors.black)
+                                      ),
+                                    ),
+                              ],
+                            ),
+                            if (locations.isNotEmpty)
+                              Row(
+                                children: [
+                                  SizedBox(
+                                    width: 90,
+                                  ),
+                                  Text(
+                                    locations[index],
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              CircleAvatar(
-                                radius: 20,
-                                backgroundColor: Colors.black,
-                                child: Image.network(
-                                  profilephotos[index],
-                                  height: 50,
-                                  width: 50,
+                          ],
+                        ),
+
+                        SizedBox(height: 10),
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade100),
+                          ),
+                          child: Stack(
+                            children: [
+                              GestureDetector(
+                                onDoubleTap: () async {
+                                  showLikeIcon(index);
+                                  print('index $index');
+                                  List<String> currentLikedUsers = likedUsers[index];
+                                  final bool userLiked = currentLikedUsers.contains(currentUserUid);
+
+                                  if (userLiked) {
+                                    currentLikedUsers.remove(currentUserUid);
+                                  } else {
+                                    currentLikedUsers.add(currentUserUid);
+                                  }
+                                  await updateFirestoreLikedUsers(index, currentLikedUsers);
+                                },
+                                child: ProgressiveImage(
+                                  width: 350.0,
+                                  baseColor: Colors.grey.shade900,
+                                  highlightColor: Colors.white,
+                                  imageError: 'Failed To Load Image',
+                                  image: imageUrls[index],
+                                  height: 400.0,
                                 ),
                               ),
-                              SizedBox(
-                                width: 5,
+                              Visibility(
+                                visible: likeIconVisible,
+                                child: likeIcon(index),
                               ),
-                              TextButton(onPressed: ()async{
-                                print('clicked $index');
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 10),
+                        Row(
+                          children: [
+                            SizedBox(width: 10),
+                            InkWell(
+                              onTap: (){
                                 Navigator.push(context, MaterialPageRoute(builder: (context) => Searchresult(userid: uids[index]),));
-                              }, child: Text(
-                                usernames[index],
+                              },
+                              child: Text(
+                                usernamesss[index],
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
                                 ),
-                              ),),
-                              if (verification.isNotEmpty && verification[index] == 'true')
-                                Image.network(
-                                  'https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
-                                  height: 30,
-                                  width: 30,
-                                ),
-                              SizedBox(
-                                width: 1,
                               ),
-                              if(follow[index]=='true')
-                                ElevatedButton(onPressed: (){},
-                                    child: Text('Followed',style: TextStyle(color: Colors.white,fontWeight: FontWeight.w500),),
-                                    style: ButtonStyle(
-                                        backgroundColor: MaterialStatePropertyAll(Colors.black)
-                                    ),
-                                  ),
-
-                              if(follow[index]=='false')
-                                ElevatedButton(onPressed: (){},
-                                    child: Text('Follow',style: TextStyle(color: Colors.white,fontWeight: FontWeight.w500),),
-                                    style: ButtonStyle(
-                                        backgroundColor: MaterialStatePropertyAll(Colors.black)
-                                    ),
-                                  ),
-                            ],
-                          ),
-                          if (locations.isNotEmpty)
-                            Row(
-                              children: [
-                                SizedBox(
-                                  width: 70,
-                                ),
-                                Text(
-                                  locations[index],
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
                             ),
-                        ],
-                      ),
-
-                      SizedBox(height: 10),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade100),
+                            SizedBox(width: 10),
+                            Text(
+                              captions[index],
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
                         ),
-                        child: Stack(
+                        SizedBox(
+                          height: 10,
+                        ),
+                        Row(
                           children: [
-                            GestureDetector(
-                              onDoubleTap: () async {
+                            SizedBox(
+                              width: 10,
+                            ),
+                            IconButton(
+                              onPressed: () async {
                                 showLikeIcon(index);
-                                print('index $index');
-                                List<String> currentLikedUsers = likedUsers[index];
-                                final bool userLiked = currentLikedUsers.contains(currentUserUid);
+                                List<String> currentLikedUsers =
+                                likedUsers[index];
+                                final bool userLiked =
+                                currentLikedUsers.contains(currentUserUid);
 
                                 if (userLiked) {
                                   currentLikedUsers.remove(currentUserUid);
@@ -1040,121 +1232,78 @@ class _HomepageState extends State<Homepage> {
                                   currentLikedUsers.add(currentUserUid);
                                 }
 
-                                await updateFirestoreLikedUsers(index, currentLikedUsers);
+                                await updateFirestoreLikedUsers(
+                                    index, currentLikedUsers);
                               },
-                              child: ProgressiveImage(
-                                width: 350.0,
-                                baseColor: Colors.grey.shade900,
-                                highlightColor: Colors.white,
-                                imageError: 'Failed To Load Image',
-                                image: imageUrls[index],
-                                height: 400.0,
+                              icon: likedUsers[index].contains(currentUserUid)
+                                  ? Icon(
+                                Icons.favorite,
+                                color: Colors.red,
+                                size: 30,
+                              )
+                                  : Icon(
+                                Icons.favorite_border,
+                                color: Colors.white,
+                                size: 30,
                               ),
                             ),
-                            Visibility(
-                              visible: likeIconVisible,
-                              child: likeIcon(index),
+
+                            if (likedUsers[index]?.length == 1)
+                              Text(
+                                '${likedUsers[index]?.length ?? 0} Like',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            if (likedUsers[index].length > 1)
+                              Text(
+                                '${likedUsers[index]?.length ?? 0} Likes',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            SizedBox(
+                              width: 10,
                             ),
+                            IconButton(onPressed: (){
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => Comment_page(startIndex: index)));
+                              print('Index is $index');
+                            },
+                                icon: Icon(Icons.comment_outlined,color: Colors.white)),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                IconButton(onPressed: ()async{
+                                  final user=_auth.currentUser;
+                                  await _firestore.collection('Saved').doc(user?.uid).set(
+                                      {
+                                        'Saved':FieldValue.arrayUnion([
+                                          {
+                                            'image link':imageUrls[index],
+                                            'captions':captions[index],
+                                            'profile picture':profilephotos[index],
+                                            'username':usernames[index],
+                                            'location':locations[index],
+                                            'uid':uids[index]
+                                          }
+                                        ])
+                                      }, SetOptions(merge: true));
+                                }, icon: Icon(Icons.save_alt,color: Colors.white,)),
+
+                              ],
+                            )
                           ],
                         ),
-                      ),
-                      SizedBox(height: 10),
-                      Row(
-                        children: [
-                          SizedBox(width: 10),
-                          InkWell(
-                            onTap: (){
-                              Navigator.push(context, MaterialPageRoute(builder: (context) => Searchresult(userid: uids[index]),));
-                            },
-                            child: Text(
-                              usernames[index],
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 10),
-                          Text(
-                            captions[index],
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(
-                        height: 10,
-                      ),
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 10,
-                          ),
-                          IconButton(
-                            onPressed: () async {
-                              showLikeIcon(index);
-                              List<String> currentLikedUsers =
-                              likedUsers[index];
-                              final bool userLiked =
-                              currentLikedUsers.contains(currentUserUid);
-
-                              if (userLiked) {
-                                currentLikedUsers.remove(currentUserUid);
-                              } else {
-                                currentLikedUsers.add(currentUserUid);
-                              }
-
-                              await updateFirestoreLikedUsers(
-                                  index, currentLikedUsers);
-                            },
-                            icon: likedUsers[index].contains(currentUserUid)
-                                ? Icon(
-                              Icons.favorite,
-                              color: Colors.red,
-                              size: 30,
-                            )
-                                : Icon(
-                              Icons.favorite_border,
-                              color: Colors.white,
-                              size: 30,
-                            ),
-                          ),
-
-                          if (likedUsers[index]?.length == 1)
-                            Text(
-                              '${likedUsers[index]?.length ?? 0} Like',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          if (likedUsers[index].length > 1)
-                            Text(
-                              '${likedUsers[index]?.length ?? 0} Likes',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          SizedBox(
-                            width: 10,
-                          ),
-                          IconButton(onPressed: (){
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => Comment_page(startIndex: index)));
-                            print('Index is $index');
-                          },
-                              icon: Icon(Icons.comment_outlined,color: Colors.white))
-                        ],
-                      ),
-                      SizedBox(height: 30),
-                    ],
-                  );
-                },
+                        SizedBox(height: 30),
+                      ],
+                    );
+                  },
+                ),
               ),
-            ),
-            SizedBox(height: 30),
-          ],
+              SizedBox(height: 30),
+            ],
+          ),
         ),
       ),
     );

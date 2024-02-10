@@ -170,6 +170,8 @@ class _Reelpage_accountState extends State<Reelpage_account> {
       fetchfollowerscount();
       fetchfollowing();
       fetchverification();
+      fetchfollowings();
+      fetchfollowerss();
     }
   }
   List<String> imageUrls = [];
@@ -252,11 +254,63 @@ class _Reelpage_accountState extends State<Reelpage_account> {
       print('bio error:$e');
     }
   }
+  List<String> followings=[];
+  Future<void> fetchfollowings() async {
+    final user = _auth.currentUser;
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('Following')
+          .doc(user?.uid)
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['Followers'] as List?) ?? [];
+          setState(() {
+            followings =
+                posts.map((post) => post['followerUid'].toString()).toList();
+          });
+        }
+      }
+      print('following $followings');
+    } catch (e) {
+      print('Error fetching followers fetchfollowers: $e');
+    }
+
+  }
+  List<String> followerss=[];
+  Future<void> fetchfollowerss() async {
+    final user = _auth.currentUser;
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('Followers')
+          .doc(user?.uid)
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['Followers'] as List?) ?? [];
+          setState(() {
+            followerss =
+                posts.map((post) => post['followerUid'].toString()).toList();
+          });
+        }
+      }
+      print('followers $followerss');
+    } catch (e) {
+      print('Error fetching followers fetchfollowers: $e');
+    }
+
+  }
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
     fetchverification();
+    fetchfollowings();
+    fetchfollowerss();
     fetchusername();
     fetchfollowing();
     fetchsubsurls();
@@ -487,14 +541,14 @@ class _Reelpage_accountState extends State<Reelpage_account> {
                     SizedBox(
                       height: 2,
                     ),
-                    Text('$followerscount', style: TextStyle(
+                    Text('${followerss.length}', style: TextStyle(
                         color: CupertinoColors.white,
                         fontWeight: FontWeight.bold),),
-                    if(followerscount <= 1)
+                    if(followerss.length <= 1)
                       Text('Follower', style: TextStyle(
                           color: CupertinoColors.white,
                           fontWeight: FontWeight.bold),),
-                    if(followerscount > 1)
+                    if(followerss.length > 1)
                       Text('Followers', style: TextStyle(
                           color: CupertinoColors.white,
                           fontWeight: FontWeight.bold),)
@@ -508,14 +562,14 @@ class _Reelpage_accountState extends State<Reelpage_account> {
                     SizedBox(
                       height: 1,
                     ),
-                    Text('$following', style: TextStyle(
+                    Text('${followings.length}', style: TextStyle(
                         color: CupertinoColors.white,
                         fontWeight: FontWeight.bold),),
-                    if(following <= 1)
+                    if(followings.length <= 1)
                       Text('Following', style: TextStyle(
                           color: CupertinoColors.white,
                           fontWeight: FontWeight.bold),),
-                    if(following > 1)
+                    if(followings.length > 1)
                       Text('Following', style: TextStyle(
                           color: CupertinoColors.white,
                           fontWeight: FontWeight.bold),)

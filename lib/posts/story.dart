@@ -249,6 +249,7 @@ class _StoryState extends State<Story> {
           'time':FieldValue.serverTimestamp(),
           'caption':_captionController.text,
           'story seen':false,
+          'story uid':user!.uid
         });
         setState(() {
           _uploading = false;

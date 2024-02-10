@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 const apiKey = "AIzaSyCsAiSSzeLc7YV4vSDMtkhd4YCMROM6LJc";
 
 void main() {
@@ -11,7 +12,7 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key});
 
   @override
   Widget build(BuildContext context) {
@@ -28,8 +29,8 @@ class MyApp extends StatelessWidget {
 
 class support_sections extends StatefulWidget {
   const support_sections({
-    super.key,
-  });
+    Key? key,
+  }) : super(key: key);
 
   @override
   State<support_sections> createState() => _support_sectionsState();
@@ -48,12 +49,11 @@ class _support_sectionsState extends State<support_sections> {
               bottom: const TabBar(
                 tabs: [
                   Tab(text: "Text Only"),
-                  Tab(text: "Text with Image"),
                 ],
               ),
             ),
             body: const TabBarView(
-              children: [TextOnly(), TextWithImage()],
+              children: [TextOnly()],
             )));
   }
 }
@@ -62,8 +62,8 @@ class _support_sectionsState extends State<support_sections> {
 
 class TextOnly extends StatefulWidget {
   const TextOnly({
-    super.key,
-  });
+    Key? key,
+  }) : super(key: key);
 
   @override
   State<TextOnly> createState() => _TextOnlyState();
@@ -77,20 +77,20 @@ class _TextOnlyState extends State<TextOnly> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _controller = ScrollController();
 
-  // Create Gemini Instance
   final gemini = GoogleGemini(
     apiKey: apiKey,
   );
   String? username = 'User 1';
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+
   Future<void> fetchUsername() async {
     final user = _auth.currentUser;
     final docSnap =
     await _firestore.collection('User Details').doc(user?.uid).get();
     if (docSnap.exists) {
       setState(() {
-        username = docSnap.data()?['user names'];
+        username = docSnap.data()?['user name'];
       });
     }
   }
@@ -99,25 +99,46 @@ class _TextOnlyState extends State<TextOnly> {
   void initState() {
     super.initState();
     fetchUsername();
+    fetchChat(); // Call fetchChat to retrieve chat messages
   }
-  // Text only input
-  void fromText({required String query}) {
+
+  void fromText({required String query}) async {
+    final user = _auth.currentUser;
+
+    // Save the user's message to Firestore
+    await _firestore.collection('Chats').doc(user?.uid).collection('Messages').add({
+      "role": username,
+      "text": query,
+      "type": "user",
+      "timestamp": Timestamp.now(),
+    });
+
     setState(() {
       loading = true;
       textChat.add({
         "role": username,
         "text": query,
+        "type": "user",
       });
       _textController.clear();
     });
     scrollToTheEnd();
 
-    gemini.generateFromText(query).then((value) {
+    gemini.generateFromText(query).then((value) async {
+      // Save the response from Gemini to Firestore
+      await _firestore.collection('Chats').doc(user?.uid).collection('Messages').add({
+        "role": "Evolve",
+        "text": value.text,
+        "type": "gemini",
+        "timestamp": Timestamp.now(),
+      });
+
       setState(() {
         loading = false;
         textChat.add({
           "role": "Evolve",
           "text": value.text,
+          "type": "gemini",
         });
       });
       scrollToTheEnd();
@@ -127,9 +148,20 @@ class _TextOnlyState extends State<TextOnly> {
         textChat.add({
           "role": "Gemini",
           "text": error.toString(),
+          "type": "error",
         });
       });
       scrollToTheEnd();
+    });
+  }
+
+
+  Future<void> fetchChat() async {
+    final user = _auth.currentUser;
+    final messagesSnapshot = await _firestore.collection('Chats').doc(user?.uid).collection('Messages').orderBy('timestamp').get();
+
+    setState(() {
+      textChat = messagesSnapshot.docs.map((doc) => doc.data()).toList();
     });
   }
 
@@ -153,7 +185,10 @@ class _TextOnlyState extends State<TextOnly> {
                     leading: CircleAvatar(
                       child: Text(textChat[index]["role"].substring(0, 1)),
                     ),
-                    title: Text(textChat[index]["role"],style: TextStyle(fontWeight: FontWeight.bold),),
+                    title: Text(
+                      textChat[index]["role"],
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     subtitle: Text(textChat[index]["text"]),
                   );
                 },
@@ -172,10 +207,10 @@ class _TextOnlyState extends State<TextOnly> {
                   Expanded(
                     child: TextField(
                       controller: _textController,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: "Type a message",
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.0),
+                            borderRadius: BorderRadius.all(Radius.circular(10.0)),
                             borderSide: BorderSide.none),
                         fillColor: Colors.transparent,
                       ),
@@ -188,12 +223,7 @@ class _TextOnlyState extends State<TextOnly> {
                         ? const CircularProgressIndicator()
                         : const Icon(Icons.send),
                     onPressed: () {
-                     if(_textController.text.isNotEmpty)
-                       fromText(query: _textController.text);
-                     if(_textController.text.isEmpty)
-                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                         backgroundColor: Colors.red,
-                           content: Text("Please type your help")));
+                      if (_textController.text.isNotEmpty) fromText(query: _textController.text);
                     },
                   ),
                 ],
@@ -201,181 +231,5 @@ class _TextOnlyState extends State<TextOnly> {
             )
           ],
         ));
-  }
-}
-
-// ------------------------------ Text with Image ------------------------------
-
-class TextWithImage extends StatefulWidget {
-  const TextWithImage({
-    super.key,
-  });
-
-  @override
-  State<TextWithImage> createState() => _TextWithImageState();
-}
-
-class _TextWithImageState extends State<TextWithImage> {
-  bool loading = false;
-  List textAndImageChat = [];
-  List textWithImageChat = [];
-  File? imageFile;
-
-
-
-  final ImagePicker picker = ImagePicker();
-
-  final TextEditingController _textController = TextEditingController();
-  final ScrollController _controller = ScrollController();
-
-  // Create Gemini Instance
-  final gemini = GoogleGemini(
-    apiKey: apiKey,
-  );
-
-  // Text only input
-  String? username = 'User 1';
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  Future<void> fetchUsername() async {
-    final user = _auth.currentUser;
-    final docSnap =
-    await _firestore.collection('User Details').doc(user?.uid).get();
-    if (docSnap.exists) {
-      setState(() {
-        username = docSnap.data()?['user names'];
-      });
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    fetchUsername();
-  }
-  void fromTextAndImage({required String query, required File image}) {
-    setState(() {
-      loading = true;
-      textAndImageChat.add({
-        "role": username,
-        "text": query,
-        "image": image,
-      });
-      _textController.clear();
-      imageFile = null;
-    });
-    scrollToTheEnd();
-
-    gemini.generateFromTextAndImages(query: query, image: image).then((value) {
-      setState(() {
-        loading = false;
-        textAndImageChat
-            .add({"role": "Grovito", "text": value.text, "image": ""});
-      });
-      scrollToTheEnd();
-    }).onError((error, stackTrace) {
-      setState(() {
-        loading = false;
-        textAndImageChat
-            .add({"role": "Grovito", "text": error.toString(), "image": ""});
-      });
-      scrollToTheEnd();
-    });
-  }
-
-  void scrollToTheEnd() {
-    _controller.jumpTo(_controller.position.maxScrollExtent);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              controller: _controller,
-              itemCount: textAndImageChat.length,
-              padding: const EdgeInsets.only(bottom: 20),
-              itemBuilder: (context, index) {
-                return ListTile(
-                  isThreeLine: true,
-                  leading: CircleAvatar(
-                    child:
-                    Text(textAndImageChat[index]["role"].substring(0, 1)),
-                  ),
-                  title: Text(textAndImageChat[index]["role"]),
-                  subtitle: Text(textAndImageChat[index]["text"]),
-                  trailing: textAndImageChat[index]["image"] == ""
-                      ? null
-                      : Image.file(
-                    textAndImageChat[index]["image"],
-                    width: 90,
-                  ),
-                );
-              },
-            ),
-          ),
-          Container(
-            alignment: Alignment.bottomRight,
-            margin: const EdgeInsets.all(20),
-            padding: const EdgeInsets.symmetric(horizontal: 15.0),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10.0),
-              border: Border.all(color: Colors.grey),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _textController,
-                    decoration: InputDecoration(
-                      hintText: "Write a message",
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.0),
-                          borderSide: BorderSide.none),
-                      fillColor: Colors.transparent,
-                    ),
-                    maxLines: null,
-                    keyboardType: TextInputType.multiline,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add_a_photo),
-                  onPressed: () async {
-                    final XFile? image =
-                    await picker.pickImage(source: ImageSource.gallery);
-                    setState(() {
-                      imageFile = image != null ? File(image.path) : null;
-                    });
-                  },
-                ),
-                IconButton(
-                  icon: loading
-                      ? const CircularProgressIndicator()
-                      : const Icon(Icons.send),
-                  onPressed: () {
-                    if (imageFile == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text("Please select an image")));
-                      return;
-                    }
-                    fromTextAndImage(
-                        query: _textController.text, image: imageFile!);
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: imageFile != null
-          ? Container(
-        margin: const EdgeInsets.only(bottom: 80),
-        height: 150,
-        child: Image.file(imageFile ?? File("")),
-      )
-          : null,
-    );
   }
 }

@@ -65,6 +65,7 @@ class _reels_accountState extends State<reels_account> {
       print('Error fetching followers: $e');
     }
   }
+
   @override
   void initState() {
     super.initState();
@@ -397,7 +398,25 @@ class _reels_accountState extends State<reels_account> {
                                   Row(
                                     children: [
                                       Text('.',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),),
-                                      ElevatedButton(onPressed: (){},
+                                      ElevatedButton(onPressed: ()async{
+                                        final user=_auth.currentUser;
+                                        print('uid clicked ${uids[_currentVideoIndex]}');
+                                        await _firestore.collection('Followers').doc(uids[_currentVideoIndex]).set({
+                                          'Followers': FieldValue.arrayRemove([
+                                            {
+                                              'followerUid': user!.uid,
+                                            }
+                                          ]),
+                                        }, SetOptions(merge: true));
+                                        await _firestore.collection('Following').doc(user!.uid).set({
+                                          'Followers': FieldValue.arrayRemove([
+                                            {
+                                              'followerUid': uids[_currentVideoIndex],
+                                            }
+                                          ]),
+                                        }, SetOptions(merge: true));
+                                        fetchfollowers();
+                                      },
                                           child: Text('Followed',style: TextStyle(color: Colors.white,fontWeight: FontWeight.w500,fontSize: 15),),
                                           style: ButtonStyle(
                                               backgroundColor: MaterialStatePropertyAll(Colors.black)
@@ -409,7 +428,23 @@ class _reels_accountState extends State<reels_account> {
                                   Row(
                                     children: [
                                       Text('.',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),),
-                                      ElevatedButton(onPressed: (){},
+                                      ElevatedButton(onPressed: ()async{
+                                        final user=_auth.currentUser;
+                                        await _firestore.collection('Followers').doc(uids[_currentVideoIndex]).set({
+                                          'Followers': FieldValue.arrayUnion([
+                                            {
+                                              'followerUid': user!.uid,
+                                            }
+                                          ]),
+                                        }, SetOptions(merge: true));
+                                        await _firestore.collection('Following').doc(user!.uid).set({
+                                          'Followers': FieldValue.arrayUnion([
+                                            {
+                                              'followerUid': uids[_currentVideoIndex],
+                                            }
+                                          ]),
+                                        }, SetOptions(merge: true));
+                                      },
                                           child: Text('Follow',style: TextStyle(color: Colors.white,fontWeight: FontWeight.w500),),
                                           style: ButtonStyle(
                                               backgroundColor: MaterialStatePropertyAll(Colors.black)

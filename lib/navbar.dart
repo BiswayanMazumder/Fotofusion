@@ -16,9 +16,6 @@ class NavBar extends StatefulWidget {
 
 class _NavBarState extends State<NavBar> {
   final _pageController = PageController(initialPage: 0);
-
-  /// Controller to handle bottom nav bar and also handles initial page
-
   int _index = 0;
 
   @override
@@ -59,20 +56,18 @@ class _NavBarState extends State<NavBar> {
           },
           tabs: [
             GButton(icon: Icons.home,
-              text: 'HomePage',
               rippleColor: Colors.green,
               backgroundColor: Colors.red,
             ),
             GButton(icon: Icons.search,
-              text: 'Search',
               rippleColor: Colors.green,
-              backgroundColor: Colors.cyan,
+              backgroundColor: Colors.yellow,
             ),
-            GButton(icon: Icons.movie_filter_outlined,text: 'Reels',
+            GButton(icon: Icons.movie_filter_outlined,
               backgroundColor: Colors.lightGreenAccent,
             ),
-            GButton(icon: Icons.person,text: 'Profile',
-              backgroundColor: Colors.deepOrangeAccent,
+            GButton(icon: Icons.person,
+              backgroundColor: Colors.blue,
               haptic: true,
               debug: true,
             ),

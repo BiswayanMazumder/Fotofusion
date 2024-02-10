@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';
 class Notifications extends StatefulWidget {
   const Notifications({Key? key}) : super(key: key);
 
@@ -139,47 +140,50 @@ class _NotificationsState extends State<Notifications> {
           Navigator.pop(context);
         }, icon: Icon(CupertinoIcons.back,color: Colors.white,)),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            SizedBox(
-              height: 20,
-            ),
-            for(int i=0;i<usernames.length;i++)
-              Column(
-                children: [
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 10,
-                      ),
-                      CircleAvatar(
-                        backgroundColor: Colors.grey,
-                        backgroundImage: NetworkImage(profilepicurls[i]),
-                      ),
-                      SizedBox(
-                        width: 20,
-                      ),
-                      Text('${usernames[i]}',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,
-                      fontSize:13.5
-                      ),),
-                      if(verificationsstatuses[i])
-                        Image.network('https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-'
-                            '4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
-                          height: 20,
+      body: LiquidPullToRefresh(
+        onRefresh: _fetchData,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              SizedBox(
+                height: 20,
+              ),
+              for(int i=0;i<usernames.length;i++)
+                Column(
+                  children: [
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 10,
+                        ),
+                        CircleAvatar(
+                          backgroundColor: Colors.grey,
+                          backgroundImage: NetworkImage(profilepicurls[i]),
+                        ),
+                        SizedBox(
                           width: 20,
                         ),
-                      Text(' started following you',style: TextStyle(color: Colors.white,fontWeight: FontWeight.w400,
-                          fontSize:13.5
-                      ),),
-                    ],
-                  ),
-                  SizedBox(
-                    height: 40,
-                  )
-                ],
-              )
-          ],
+                        Text('${usernames[i]}',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,
+                        fontSize:13.5
+                        ),),
+                        if(verificationsstatuses[i])
+                          Image.network('https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-'
+                              '4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
+                            height: 20,
+                            width: 20,
+                          ),
+                        Text(' started following you',style: TextStyle(color: Colors.white,fontWeight: FontWeight.w400,
+                            fontSize:13.5
+                        ),),
+                      ],
+                    ),
+                    SizedBox(
+                      height: 40,
+                    )
+                  ],
+                )
+            ],
+          ),
         ),
       ),
     );

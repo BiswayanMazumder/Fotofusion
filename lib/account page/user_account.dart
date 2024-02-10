@@ -1,10 +1,12 @@
 import 'package:fotofusion/Dashboards/dashboard.dart';
 import 'package:fotofusion/Searches/search_result.dart';
+import 'package:fotofusion/pages/saved_posts.dart';
 import 'package:fotofusion/posts/subscriber_specific.dart';
 import 'package:fotofusion/settings/settingspage.dart';
 import 'package:fotofusion/Subscribers_only/subs_special.dart';
 import 'package:insta_image_viewer/insta_image_viewer.dart';
 import 'dart:io';
+import 'package:flutter_sliding_up_panel/flutter_sliding_up_panel.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +21,7 @@ import 'package:fotofusion/posts/post_page.dart';
 import 'package:fotofusion/posts/reels.dart';
 import 'package:fotofusion/posts/story.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/cupertino.dart';
 class Account_page extends StatefulWidget {
@@ -422,7 +425,8 @@ class _Account_pageState extends State<Account_page> {
       print(e);
     }
   }
-
+  SlidingUpPanelController panelController = SlidingUpPanelController();
+  late ScrollController scrollController;
   Future<void> fetchUserDetails(List<String> userIds) async {
     for (String userId in userIds) {
       try {
@@ -491,7 +495,7 @@ class _Account_pageState extends State<Account_page> {
           children: [
             Text(
               username!,
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(color: Colors.white,fontSize: 18),
             ),
             SizedBox(
               width: 5,
@@ -618,7 +622,36 @@ class _Account_pageState extends State<Account_page> {
                 },);
             },
             icon: Icon(Icons.add_box_outlined, color: Colors.white,size: 30,),
-          )
+          ),
+          IconButton(onPressed: (){
+            showDialog(context: context, builder: (context) {
+              return AlertDialog(
+                backgroundColor: Colors.black,
+                actions: [
+                  Column(
+                    children: [
+                      SizedBox(
+                        height: 40,
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          InkWell(
+                            onTap: (){
+                              Navigator.pop(context);
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => Saved_post(),));
+
+                            },
+                            child: Text('Saved Posts',style: TextStyle(color: Colors.white,fontSize: 15,fontWeight: FontWeight.w300),),
+                          )
+                        ],
+                      ),
+                    ],
+                  )
+                ],
+              );
+            },);
+          }, icon: Icon(Icons.menu,color: Colors.white,))
         ],
       ),
       body: SingleChildScrollView(
@@ -633,6 +666,14 @@ class _Account_pageState extends State<Account_page> {
                   width: 20,
                 ),
         InkWell(
+
+          onDoubleTap: (){
+            InstaImageViewer(
+              child: Image(
+                image: NetworkImage(_imageUrl!),
+              ),
+            );
+          },
           onTap: () async {
             print('usernames length: ${usernames.length}');
             print('verificationStatuses length: ${verificationStatuses.length}');
@@ -676,13 +717,14 @@ class _Account_pageState extends State<Account_page> {
                             height: 20,
                           ),
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Column(
                                 children: [
                                   Icon(CupertinoIcons.eye,color: Colors.white,),
                                   InkWell(
-                                    onTap: (){
 
+                                    onTap: (){
                                       Navigator.pop(context);
                                       if(usernames.length==0)
                                         showDialog(context: context, builder: (context) {
@@ -767,7 +809,7 @@ class _Account_pageState extends State<Account_page> {
                                       },);
                                     },
                                     child: Text('Seen by ${usernames.length}',style: TextStyle(color: Colors.white,fontWeight: FontWeight.w500),),
-                                  )
+                                  ),
                                 ],
                               )
                             ],
@@ -779,8 +821,6 @@ class _Account_pageState extends State<Account_page> {
                 },
               );
             }
-
-
           },
           child: _uploading
               ? CircularProgressIndicator(
@@ -789,8 +829,8 @@ class _Account_pageState extends State<Account_page> {
               : _imageUrl == null
               ? ClipOval(
             child: Container(
-              width: 110,
-              height: 110,
+              width: 80,
+              height: 80,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
@@ -808,8 +848,8 @@ class _Account_pageState extends State<Account_page> {
             ),
           )
               : Container(
-            width: 110,
-            height: 110,
+            width: 95,
+            height: 95,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
@@ -995,53 +1035,58 @@ class _Account_pageState extends State<Account_page> {
               height: 10,
             ),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                SizedBox(width: 20), // Leftmost space
                 SizedBox(
-                  width: 20,
-                ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => Editprofile()),
-                      );
-                    },
-                    style: ButtonStyle(
-                        backgroundColor: MaterialStatePropertyAll(
-                            Colors.grey[900])),
-                    child: Text(
-                      '        Edit Profile        ',
-                      style: TextStyle(color: Colors.white),
+                  width: 150, // Adjust the width as needed
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => Editprofile()),
+                        );
+                      },
+                      style: ButtonStyle(
+                          backgroundColor:
+                          MaterialStatePropertyAll(Colors.grey[900])),
+                      child: Text(
+                        'Edit Profile',
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
                   ),
                 ),
+                // Spacer between buttons
                 SizedBox(
-                  width: 20,
-                ),
-                Align(
-                  alignment: Alignment.topRight,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => Settings_page()));
-                    },
-                    style: ButtonStyle(
-                        backgroundColor: MaterialStatePropertyAll(
-                            Colors.grey[900])),
-                    child: const Text(
-                      '          Settings          ',
-                      style: TextStyle(color: Colors.white),
+                  width: 150, // Adjust the width as needed
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(context,
+                            MaterialPageRoute(builder: (context) => Settings_page()));
+                      },
+                      style: ButtonStyle(
+                          backgroundColor:
+                          MaterialStatePropertyAll(Colors.grey[900])),
+                      child: const Text(
+                        'Settings',
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
                   ),
-                )
+                ),
+                SizedBox(width: 20), // Rightmost space
               ],
             ),
             SizedBox(
               height: 20,
             ),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center, // Center aligns the children
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly, // Center aligns the children
               children: [
                 IconButton(
                   onPressed: () {},
@@ -1069,135 +1114,72 @@ class _Account_pageState extends State<Account_page> {
                   ),
               ],
             ),
-
-
-            for (int i = 0; i < imageUrls.length; i += 2)
-              Column(
-                children: [
-                  SizedBox(height: 20), // Add a gap of 20 pixels between new rows
+            Column(
+              children: [
+                for (int i = 0; i < imageUrls.length; i += 2)
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      SizedBox(width: 20),
-                      if (i < imageUrls.length)
-                        ElevatedButton(
-                          onLongPress: (){
-                            print('hii');
-                            showDialog(context: context, builder: (context) {
-                              return AlertDialog(
-                                backgroundColor: Colors.black,
-                                actions: [
-                              Center(
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(username,style: TextStyle(color: Colors.white,fontSize: 15,fontWeight: FontWeight.bold),),
-                                        SizedBox(
-                                          width: 5,
-                                        ),
-                                        if(isverified)
-                                          Image.network(
-                                            'https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
-                                            height: 30,
-                                            width: 30,
-                                          ),
-                                      ],
+                      Expanded(
+                        child: Column(
+                          children: [
+                            SizedBox(height: 20), // Add a gap of 20 pixels between new rows
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => detailpostpage(startIndex: i),
+                                  ),
+                                );
+                              },
+                              style: ButtonStyle(
+                                backgroundColor: MaterialStateProperty.all(Colors.black),
+                              ),
+                              child: Image.network(
+                                imageUrls[i],
+                                width: double.infinity,
+                                height: 110,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            SizedBox(height: 10), // Add a gap of 10 pixels at the end of each row
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: 10), // Add spacing between the images
+                      Expanded(
+                        child: Column(
+                          children: [
+                            SizedBox(height: 20), // Add a gap of 20 pixels between new rows
+                            if (i + 1 < imageUrls.length)
+                              ElevatedButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => detailpostpage(startIndex: i + 1),
                                     ),
-                                    InstaImageViewer(
-                                    child: Image.network(imageUrls[i],
-                                      width: 500,
-                                      height: 500,)
-                                    ),
-                                  ],
+                                  );
+                                },
+                                style: ButtonStyle(
+                                  backgroundColor: MaterialStateProperty.all(Colors.black),
                                 ),
-                              )
-                                ],
-                              );
-                            },);
-                          },
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => detailpostpage(startIndex: i),
+                                child: Image.network(
+                                  imageUrls[i + 1],
+                                  width: double.infinity,
+                                  height: 110,
+                                  fit: BoxFit.cover,
+                                ),
                               ),
-                            );
-                          },
-                          style: ButtonStyle(
-                            backgroundColor: MaterialStateProperty.all(Colors.black),
-                          ),
-                          child: Image.network(
-                            imageUrls[i],
-                            width: 120,
-                            height: 120,
-                            fit: BoxFit.cover,
-                          ),
+                            SizedBox(height: 10), // Add a gap of 10 pixels at the end of each row
+                          ],
                         ),
-                      SizedBox(width: 10),
-                      if (i + 1 < imageUrls.length)
-                        ElevatedButton(
-                          onLongPress: (){
-                            showDialog(context: context, builder: (context) {
-                              return AlertDialog(
-                                backgroundColor: Colors.black,
-                                actions: [
-                                  Center(
-                                    child: Column(
-                                      children: [
-                                        Column(
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Text(username,style: TextStyle(color: Colors.white,fontSize: 15,fontWeight: FontWeight.bold),),
-                                                SizedBox(
-                                                  width: 5,
-                                                ),
-                                                if(isverified==true)
-                                                  Image.network(
-                                                    'https://emkldzxxityxmjkxiggw.supabase.co/storage/v1/object/public/Grovito/480-4801090_instagram-verified-badge-png-instagram-verified-icon-png-removebg-preview.png',
-                                                    height: 30,
-                                                    width: 30,
-                                                  ),
-                                              ],
-                                            ),
-                                            InstaImageViewer(
-                                                child: Image.network(imageUrls[i+1],
-                                                  width: 500,
-                                                  height: 500,)
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                ],
-                              );
-                            },);
-                          },
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => detailpostpage(startIndex: i + 1),
-                              ),
-                            );
-                          },
-                          style: ButtonStyle(
-                            backgroundColor: MaterialStateProperty.all(Colors.black),
-                          ),
-                          child: Image.network(
-                            imageUrls[i + 1],
-                            width: 120,
-                            height: 120,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      SizedBox(width: 10), // Add a gap of 10 pixels at the end of each row
+                      ),
+                      SizedBox(width: 10), // Add spacing between the images
                     ],
                   ),
-                ],
-              ),
+              ],
+            )
 // Add a gap of 20 pixels between new rows
 
             // Add a gap of 20 pixels between new rows

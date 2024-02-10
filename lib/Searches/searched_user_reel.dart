@@ -301,6 +301,56 @@ class _SearchuserreelsState extends State<Searchuserreels> {
       print('Error adding close friend $e');
     }
   }
+  List<String> followings=[];
+  Future<void> fetchfollowings() async {
+    final user = _auth.currentUser;
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('Following')
+          .doc(widget.userid)
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['Followers'] as List?) ?? [];
+          setState(() {
+            followings =
+                posts.map((post) => post['followerUid'].toString()).toList();
+          });
+        }
+      }
+      print('following $followings');
+    } catch (e) {
+      print('Error fetching followers fetchfollowers: $e');
+    }
+
+  }
+  List<String> followerss=[];
+  Future<void> fetchfollowerss() async {
+    final user = _auth.currentUser;
+    try {
+      DocumentSnapshot documentSnapshot = await _firestore
+          .collection('Followers')
+          .doc(widget.userid)
+          .get();
+
+      if (documentSnapshot.exists) {
+        dynamic data = documentSnapshot.data();
+        if (data != null) {
+          List<dynamic> posts = (data['Followers'] as List?) ?? [];
+          setState(() {
+            followerss =
+                posts.map((post) => post['followerUid'].toString()).toList();
+          });
+        }
+      }
+      print('followers $followerss');
+    } catch (e) {
+      print('Error fetching followers fetchfollowers: $e');
+    }
+
+  }
   @override
   void initState() {
     super.initState();
@@ -308,6 +358,8 @@ class _SearchuserreelsState extends State<Searchuserreels> {
     fetchsubsstate();
     fetchSubscribers();
     fetchsubsurls();
+    fetchfollowings();
+    fetchfollowerss();
     updateImagesPeriodically();
     _loadProfilePicture();
     fetchlocations();
@@ -628,10 +680,10 @@ class _SearchuserreelsState extends State<Searchuserreels> {
                       height: 1,
                     ),
 
-                    Text('$followerscount',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
-                    if(followerscount<=1)
+                    Text('${followerss.length}',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
+                    if(followerss.length<=1)
                       Text('Follower',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
-                    if(followerscount>1)
+                    if(followerss.length>1)
                       Text('Followers',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),)
                   ],
                 ),
@@ -644,10 +696,10 @@ class _SearchuserreelsState extends State<Searchuserreels> {
                       height: 1,
                     ),
 
-                    Text('$searchedfollower',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
-                    if(searchedfollower<=1)
+                    Text('${followings.length}',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
+                    if(followings.length<=1)
                       Text('Following',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),),
-                    if(searchedfollower>1)
+                    if(followings.length>1)
                       Text('Following',style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.bold),)
                   ],
                 )

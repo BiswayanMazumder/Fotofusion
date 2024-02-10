@@ -6,12 +6,15 @@ import 'firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:device_preview/device_preview.dart';
+import 'package:http/http.dart' as http;
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(MyApp());
+  runApp(
+      MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -63,6 +66,13 @@ class _MyHomePageState extends State<MyHomePage> {
       Navigator.pushReplacement(context,MaterialPageRoute(builder: (context) => NavBar()));
     }catch(e){
       print(e);
+      inccount();
+      if(count>=2){
+        _auth.sendPasswordResetEmail(email: _emailcontroller.text);
+        setState(() {
+          error='Verification email sent';
+        });
+      }
       setState(() {
         error='Enter correct email id or password';
 
@@ -149,7 +159,7 @@ class _MyHomePageState extends State<MyHomePage> {
               height: 20,
             ),
             ElevatedButton(onPressed: (){
-              inccount();
+
               login();
             },
                 style: ButtonStyle(

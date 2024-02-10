@@ -373,7 +373,8 @@ class _PostpageState extends State<Postpage> {
               'username':username,
               'profile photo':_imageUrl,
               'location':_locationController.text,
-              'Verification':isverified
+              'Verification':isverified,
+              'uid':user?.uid
             },
           ]),
         }, SetOptions(merge: true));

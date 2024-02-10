@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:fotofusion/messages/messaging_page.dart';
+import 'package:fotofusion/messsaging/messaging.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math';
@@ -794,6 +796,7 @@ class _SearchresultState extends State<Searchresult> {
               height: 15,
             ),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 SizedBox(
                   width: 20,
@@ -839,8 +842,8 @@ class _SearchresultState extends State<Searchresult> {
                       : _imageUrl == null
                       ? ClipOval(
                     child: Container(
-                      width: 100, // Instagram-like dimensions
-                      height: 100,
+                      width: 80, // Instagram-like dimensions
+                      height: 80,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
@@ -859,8 +862,8 @@ class _SearchresultState extends State<Searchresult> {
                   )
                       : ClipOval(
                     child: Container(
-                      width: 110, // Instagram-like dimensions
-                      height: 110,
+                      width: 80, // Instagram-like dimensions
+                      height: 80,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
@@ -882,8 +885,8 @@ class _SearchresultState extends State<Searchresult> {
                     : _imageUrl == null
                     ? ClipOval(
                   child: Container(
-                    width: 110, // Instagram-like dimensions
-                    height: 110,
+                    width: 80, // Instagram-like dimensions
+                    height: 80,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
@@ -901,8 +904,8 @@ class _SearchresultState extends State<Searchresult> {
                   ),
                 )
                     : Container(
-                  width: 110,
-                  height: 110,
+                  width: 80,
+                  height: 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
@@ -916,9 +919,6 @@ class _SearchresultState extends State<Searchresult> {
                       fit: BoxFit.cover,
                     ),
                   ),
-                ),
-                SizedBox(
-                  width: 30,
                 ),
                 Align(
                   alignment: Alignment.center,
@@ -1043,6 +1043,7 @@ class _SearchresultState extends State<Searchresult> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             ElevatedButton(
+                              onLongPress: (){},
                               onPressed: () async {
                                 isfollowed ? unfollow() : updatefollower();
                                 fetchFollowers();
@@ -1079,7 +1080,7 @@ class _SearchresultState extends State<Searchresult> {
                                 child:Row(
                                   children: [
                                     Text(
-                                      'Remove from close friends',
+                                      'Remove as close friends',
                                       style: TextStyle(
                                     color: Colors.red[500],
                                     fontWeight: FontWeight.bold,
@@ -1095,14 +1096,15 @@ class _SearchresultState extends State<Searchresult> {
                                 children: [
                                   Icon(Icons.star,color: Colors.green,),
                                   Text(
-                                  ' Add to close friends',
+                                  'Make close friend',
                                   style: TextStyle(
                                     color: Colors.green,
                                     fontWeight: FontWeight.bold,
                                   ),
                                                           ),
                                 ],
-                              ),):Container()
+                              ),):Container(),
+
                           ],
                         ),
                         SizedBox(
@@ -1169,6 +1171,7 @@ class _SearchresultState extends State<Searchresult> {
                                               ),
                                             style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.red)),
                                           ),
+
                                         ],
                                       )
                                     ],
@@ -1185,7 +1188,9 @@ class _SearchresultState extends State<Searchresult> {
                                 children: [
                                   Text('Subscribed',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),),
                                 ],
-                              )),
+                              ),
+
+                          ),
                         ):Center(
                           child: ElevatedButton(onPressed: (){
                             Razorpay razorpay = Razorpay();
@@ -1222,8 +1227,17 @@ class _SearchresultState extends State<Searchresult> {
                                 children: [
                                   Text('Subscribe',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),),
                                 ],
-                              )),
-                        ):Container():Container()
+                              ),
+                          ),
+                        ):Container():Container(),
+                        SizedBox(
+                          height: 20,
+                        ),
+                        ElevatedButton(onPressed: (){
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => Message(userid: widget.userid),));
+                        }, 
+                            style: ButtonStyle(backgroundColor: MaterialStatePropertyAll(Colors.grey[700])),
+                            child: Text('Message',style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold),))
                       ],
                     ),
                   ),
