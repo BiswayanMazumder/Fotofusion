@@ -18,6 +18,7 @@ class _MessageState extends State<Message> {
   String profilepics = '';
   TextEditingController _messages = TextEditingController();
   final ScrollController _controller = ScrollController();
+  bool _sendingMessage = false;
 
   @override
   void initState() {
@@ -50,22 +51,41 @@ class _MessageState extends State<Message> {
     }
   }
 
-  Future<void> sendMessage({bool repliedTo = false}) async {
+  Future<void> sendMessage({String repliedTo = ''}) async {
     final user = _auth.currentUser;
     String chatID = user!.uid.compareTo(widget.userid) < 0
         ? '${user.uid}-${widget.userid}'
         : '${widget.userid}-${user.uid}';
 
-    await _firestore.collection('Messages').doc(chatID).collection('chats').add({
-      "role": username,
-      "text": _messages.text,
-      "senderUid": user.uid, // Store the UID of the sender
-      "time of sending": FieldValue.serverTimestamp(),
-      "repliedTo": repliedTo, // Add information about whether this message is a reply
+    // Disable text field and send button
+    setState(() {
+      _sendingMessage = true;
     });
-    _messages.clear();
-  }
 
+    // Fetch receiver's ID from Firestore
+    final receiverIdSnapshot = await FirebaseFirestore.instance
+        .collection('Messages')
+        .doc(chatID)
+        .get();
+    try {
+      await _firestore.collection('Messages').doc(chatID).collection('chats').add({
+        "role": username,
+        "text": _messages.text,
+        "senderUid": user.uid, // Store the UID of the sender
+        "time of sending": FieldValue.serverTimestamp(),
+        "repliedTo": widget.userid, // Add information about whether this message is a reply
+      });
+      _messages.clear();
+    } catch (e) {
+      // Handle any errors
+      print("Error sending message: $e");
+    } finally {
+      // Enable text field and send button regardless of success or failure
+      setState(() {
+        _sendingMessage = false;
+      });
+    }
+  }
 
   void scrollToTheEnd() {
     _controller.jumpTo(_controller.position.maxScrollExtent);
@@ -129,12 +149,12 @@ class _MessageState extends State<Message> {
                   final messageText = message['text'];
                   final senderUid = message['senderUid']; // Get the UID of the sender
                   final currentUserUid = _auth.currentUser!.uid; // Get the UID of the current user
-                  final repliedTo = message['repliedTo'] ?? false;
+                  // final repliedTo = message['repliedTo'] ?? false;
                   final messageWidget = MessageBubble(
                     text: messageText,
                     senderUid: senderUid,
                     currentUserUid: currentUserUid,
-                    repliedTo: repliedTo,
+                    // repliedTo: repliedTo,
                   );
                   messageWidgets.add(messageWidget);
                 }
@@ -150,13 +170,14 @@ class _MessageState extends State<Message> {
             child: TextField(
               style: TextStyle(color: Colors.white),
               controller: _messages,
+              enabled: !_sendingMessage, // Disable text field when sending a message
               decoration: InputDecoration(
                 filled: true,
                 hintText: 'Message $username',
                 hintStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 fillColor: Colors.grey[800],
                 suffixIcon: IconButton(
-                  onPressed: sendMessage,
+                  onPressed: _sendingMessage ? null : sendMessage, // Disable send button when sending a message
                   icon: const Icon(Icons.send_outlined, color: Colors.white),
                 ),
               ),
@@ -172,9 +193,8 @@ class MessageBubble extends StatelessWidget {
   final String text;
   final String senderUid;
   final String currentUserUid;
-  final bool repliedTo;
 
-  MessageBubble({required this.text, required this.senderUid, required this.currentUserUid, this.repliedTo = false});
+  MessageBubble({required this.text, required this.senderUid, required this.currentUserUid});
 
   @override
   Widget build(BuildContext context) {

@@ -65,6 +65,13 @@ dependencies:
   flutter_sliding_up_panel: ^2.1.1
   device_preview: ^1.1.0
   liquid_pull_to_refresh: ^3.0.1
+  firebase_messaging: ^14.7.15
+  flutter_local_notifications: ^16.3.2
+  flutter_gradient_app_bar: ^0.3.1
+  carousel_images: ^1.1.2
+  simple_animated_button: ^0.0.9
+  intl: ^0.18.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

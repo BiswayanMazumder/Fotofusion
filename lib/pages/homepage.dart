@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:fotofusion/Shopping%20FotoFusion/Homepage%20Shopping/homepage_shopping.dart';
+import 'package:fotofusion/Shopping%20FotoFusion/NavBar_shopping.dart';
 import 'package:http/http.dart' as http;
 import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';
 import 'package:flutter/cupertino.dart';
@@ -132,9 +134,6 @@ class _HomepageState extends State<Homepage> {
             }
           }
         }
-
-        // Now userIds list contains all the user IDs stored in the 'Story Seen' collection
-        // You can use this list to fetch usernames and verification statuses
         fetchUserDetails(userIds);
       }
     } catch (e) {
@@ -924,6 +923,9 @@ class _HomepageState extends State<Homepage> {
         ),
         actions: [
           IconButton(onPressed: (){
+            Navigator.push(context, MaterialPageRoute(builder: (context) => NavBar_shopping(),));
+          }, icon: Icon(Icons.shopping_bag,color: Colors.white,)),
+          IconButton(onPressed: (){
             Navigator.push(context, MaterialPageRoute(builder: (context) => Notifications(),));
           }, icon: Icon(Icons.notifications_active,color: Colors.white,)),
         ],
@@ -940,7 +942,7 @@ class _HomepageState extends State<Homepage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    for (int i = 0; i < storyLinks.length && i < usernamearray.length; i++)
+                    for (int i = 0; i < storyLinks.length && i < usernames.length; i++)
                       ...[
                         SizedBox(
                           width: 20,
